@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. Elmaddin Guliyev | Radiation Detection & Imaging Expert</title>
+    <meta name="description" content="Expert consulting in CZT photon counting detectors, medical imaging, spectral CT, and radiation detection. Ph.D. physicist with 5 patents.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0a1628;
+            --accent: #3b82f6;
+            --accent-light: #60a5fa;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --bg: #f8fafc;
+            --white: #ffffff;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Fraunces', serif;
+            font-weight: 700;
+        }
+
+        /* Header */
+        header {
+            background: var(--primary);
+            color: var(--white);
+            padding: 1rem 2rem;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'Fraunces', serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--white);
+            text-decoration: none;
+            font-size: 0.95rem;
+            opacity: 0.85;
+            transition: opacity 0.2s;
+        }
+
+        .nav-links a:hover {
+            opacity: 1;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, var(--primary) 0%, #1e3a5f 100%);
+            color: var(--white);
+            padding: 10rem 2rem 6rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .hero-subtitle {
+            font-size: 1.35rem;
+            opacity: 0.9;
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+        }
+
+        .hero-credentials {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .credential {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+            opacity: 0.85;
+        }
+
+        .credential svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Sections */
+        section {
+            padding: 5rem 2rem;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .section-subtitle {
+            color: var(--text-light);
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+        }
+
+        /* Expertise */
+        .expertise-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .expertise-card {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .expertise-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+        }
+
+        .expertise-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            color: var(--primary);
+        }
+
+        .expertise-card p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+
+        /* Services */
+        .services {
+            background: var(--white);
+        }
+
+        /* Skills */
+        .skills {
+            background: var(--white);
+        }
+
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+        }
+
+        .skill-category {
+            padding: 1.5rem;
+            background: var(--bg);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .skill-category h3 {
+            font-size: 1rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .skill-category ul {
+            list-style: none;
+        }
+
+        .skill-category li {
+            padding: 0.4rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            position: relative;
+            padding-left: 1rem;
+        }
+
+        .skill-category li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-size: 0.8rem;
+        }
+
+        .services-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .service-item {
+            padding: 1.5rem;
+            border-left: 3px solid var(--accent);
+            background: var(--bg);
+        }
+
+        .service-item h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .service-item p {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        /* Patents */
+        .patents {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+
+        .patent-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .patent-item {
+            background: var(--white);
+            padding: 1.25rem 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 0.95rem;
+        }
+
+        .patent-item::before {
+            content: '📋 ';
+        }
+
+        /* Contact */
+        .contact {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .contact .section-title {
+            color: var(--white);
+        }
+
+        .contact .section-subtitle {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .contact-methods {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .contact-item a {
+            color: var(--accent-light);
+            text-decoration: none;
+            font-size: 1.05rem;
+        }
+
+        .contact-item a:hover {
+            text-decoration: underline;
+        }
+
+        .contact-item svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--accent-light);
+        }
+
+        /* CTA Button */
+        .cta-button {
+            display: inline-block;
+            background: var(--accent);
+            color: var(--white);
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 2rem;
+            transition: background 0.2s;
+        }
+
+        .cta-button:hover {
+            background: var(--accent-light);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--primary);
+            color: rgba(255,255,255,0.6);
+            padding: 2rem;
+            text-align: center;
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.1rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            section {
+                padding: 3rem 1.5rem;
+            }
+
+            .hero {
+                padding: 8rem 1.5rem 4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">Dr. Elmaddin Guliyev</div>
+            <ul class="nav-links">
+                <li><a href="#expertise">Expertise</a></li>
+                <li><a href="#skills">Skills</a></li>
+                <li><a href="#services">Services</a></li>
+                <li><a href="#patents">Patents</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Radiation Detection & Imaging Expert</h1>
+            <p class="hero-subtitle">Helping companies develop next-generation photon counting detectors, medical imaging systems, and spectral CT technology.</p>
+            
+            <div class="hero-credentials">
+                <div class="credential">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                    <span>Ph.D. Nuclear Physics</span>
+                </div>
+                <div class="credential">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>10+ Years Experience</span>
+                </div>
+                <div class="credential">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                    <span>5 Patents</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="expertise">
+        <div class="container">
+            <h2 class="section-title">Core Expertise</h2>
+            <p class="section-subtitle">Deep specialization in photon counting technology and detector physics</p>
+            
+            <div class="expertise-grid">
+                <div class="expertise-card">
+                    <h3>CdZnTe Photon Counting Detectors</h3>
+                    <p>Design, characterization, and calibration of CZT detectors for medical and security imaging applications. 7 years hands-on development experience.</p>
+                </div>
+                <div class="expertise-card">
+                    <h3>Photon Counting CT (PCCT)</h3>
+                    <p>Spectral imaging systems, K-edge analysis, energy-resolved imaging, and next-generation CT detector development.</p>
+                </div>
+                <div class="expertise-card">
+                    <h3>Detector Calibration</h3>
+                    <p>Proprietary calibration methods for improving uniformity and performance in pixelated radiation detectors. Multiple patents in this area.</p>
+                </div>
+                <div class="expertise-card">
+                    <h3>Signal Processing & Algorithms</h3>
+                    <p>Charge sharing compensation, pulse processing, image reconstruction, and ML-based detection algorithms.</p>
+                </div>
+                <div class="expertise-card">
+                    <h3>NDT & Security Imaging</h3>
+                    <p>Non-destructive testing applications, contaminant detection, and security scanning systems using spectral X-ray imaging.</p>
+                </div>
+                <div class="expertise-card">
+                    <h3>Battery Diagnostics</h3>
+                    <p>Particle detection for battery electrode applications, quality control, and advanced measurement techniques.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="skills" class="skills">
+        <div class="container">
+            <h2 class="section-title">Technical Skills & Tools</h2>
+            <p class="section-subtitle">The tools and methods I use to solve complex problems</p>
+            
+            <div class="skills-grid">
+                <div class="skill-category">
+                    <h3>Simulation & Modeling</h3>
+                    <ul>
+                        <li>Geant4</li>
+                        <li>Monte Carlo Methods</li>
+                        <li>COMSOL</li>
+                        <li>Detector Response Modeling</li>
+                        <li>Charge Transport Simulation</li>
+                    </ul>
+                </div>
+                <div class="skill-category">
+                    <h3>Programming & Analysis</h3>
+                    <ul>
+                        <li>Python</li>
+                        <li>MATLAB</li>
+                        <li>C/C++</li>
+                        <li>ROOT (CERN)</li>
+                        <li>LabVIEW</li>
+                    </ul>
+                </div>
+                <div class="skill-category">
+                    <h3>Machine Learning & AI</h3>
+                    <ul>
+                        <li>TensorFlow</li>
+                        <li>PyTorch</li>
+                        <li>Scikit-learn</li>
+                        <li>Deep Learning</li>
+                        <li>Image Classification</li>
+                    </ul>
+                </div>
+                <div class="skill-category">
+                    <h3>Data & Signal Processing</h3>
+                    <ul>
+                        <li>Spectral Analysis</li>
+                        <li>Image Reconstruction</li>
+                        <li>Statistical Modeling</li>
+                        <li>Noise Reduction</li>
+                        <li>Feature Extraction</li>
+                    </ul>
+                </div>
+                <div class="skill-category">
+                    <h3>Hardware & Instrumentation</h3>
+                    <ul>
+                        <li>Detector Characterization</li>
+                        <li>ASIC Integration</li>
+                        <li>X-ray Systems</li>
+                        <li>Data Acquisition</li>
+                        <li>Calibration Systems</li>
+                    </ul>
+                </div>
+                <div class="skill-category">
+                    <h3>Domain Expertise</h3>
+                    <ul>
+                        <li>Nuclear Physics</li>
+                        <li>Radiation Detection</li>
+                        <li>Medical Imaging</li>
+                        <li>NDT/Security</li>
+                        <li>Battery Diagnostics</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="services" class="services">
+        <div class="container">
+            <h2 class="section-title">Consulting Services</h2>
+            <p class="section-subtitle">How I can help your organization</p>
+            
+            <div class="services-list">
+                <div class="service-item">
+                    <h3>Technical Advisory</h3>
+                    <p>Expert guidance on detector design, system architecture, and technology roadmaps for imaging and detection products.</p>
+                </div>
+                <div class="service-item">
+                    <h3>Due Diligence</h3>
+                    <p>Technical assessment of detector technology companies, startups, and IP portfolios for investors and acquirers.</p>
+                </div>
+                <div class="service-item">
+                    <h3>Product Development</h3>
+                    <p>Hands-on support for detector calibration, characterization, algorithm development, and system integration.</p>
+                </div>
+                <div class="service-item">
+                    <h3>Expert Witness</h3>
+                    <p>Technical expertise for legal cases involving radiation detection, imaging systems, and related IP disputes.</p>
+                </div>
+                <div class="service-item">
+                    <h3>Training & Workshops</h3>
+                    <p>Technical training for engineering teams on photon counting technology, detector physics, and calibration methods.</p>
+                </div>
+                <div class="service-item">
+                    <h3>Research Collaboration</h3>
+                    <p>Joint research projects, grant proposal support, and academic partnerships in detector development.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="patents" class="patents">
+        <div class="container">
+            <h2 class="section-title">Patents</h2>
+            <p class="section-subtitle">Intellectual property in detector calibration and spectral imaging</p>
+            
+            <div class="patent-list">
+                <div class="patent-item">Calibration Methods for Improving Uniformity in X-Ray Photon Counting Detectors</div>
+                <div class="patent-item">Systems and Methods for K-Edge-Based X-Ray Imaging Having Improved Contrast-to-Noise Ratio</div>
+                <div class="patent-item">Compensation for Charge Sharing Between Detector Pixels in a Pixilated Radiation Detector</div>
+                <div class="patent-item">Methods of Calibrating Semiconductor Radiation Detectors Using K-Edge Filters</div>
+                <div class="patent-item">Photon Counting Computed Tomography Detector with Improved Count Rate Stability</div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="contact">
+        <div class="container">
+            <h2 class="section-title">Get in Touch</h2>
+            <p class="section-subtitle">Available for consulting engagements, expert network calls, and collaborations</p>
+            
+            <div class="contact-methods">
+                <div class="contact-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                    <a href="mailto:e.g.guliyev@gmail.com">e.g.guliyev@gmail.com</a>
+                </div>
+                <div class="contact-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                    <a href="https://www.linkedin.com/in/elmaddinguliyev-07bb3a265" target="_blank">LinkedIn Profile</a>
+                </div>
+                <div class="contact-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    <a href="https://github.com/egguliyev" target="_blank">GitHub</a>
+                </div>
+            </div>
+            
+            <a href="mailto:e.g.guliyev@gmail.com" class="cta-button">Schedule a Consultation</a>
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2024 Dr. Elmaddin Guliyev. All rights reserved.</p>
+    </footer>
+</body>
+</html>
