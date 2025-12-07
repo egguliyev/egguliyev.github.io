@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CZT Detector Charge Drift Animation</title>
+    <title>CdZnTe Detector Charge Drift Animation</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -163,8 +163,8 @@
 
             return (
                 <div className="flex flex-col items-center p-4 bg-gray-900 min-h-screen text-white">
-                    <h1 className="text-2xl font-bold mb-2 mt-8">CZT Detector: Charge Cloud Drift Animation</h1>
-                    <p className="text-gray-400 mb-4">330 × 330 × 2000 µm³ pixel | -1000V bias | Photon Counting CT</p>
+                    <h1 className="text-2xl font-bold mb-2 mt-8">CdZnTe Pixel Detector: Charge Cloud Drift from Cathode to Anode</h1>
+                    <p className="text-gray-400 mb-4">Under -1000V bias | </p>
 
                     <div className="flex flex-wrap justify-center gap-8">
                         {/* Main detector view */}
@@ -331,7 +331,6 @@
                                     <li>• <span className="text-red-400">Holes</span> drift slowly (3.5 µm/ns), get trapped</li>
                                     <li>• Cloud expands due to diffusion & repulsion</li>
                                     <li>• <span className="text-yellow-400">Transit time ≈ 38 ns</span></li>
-                                    <li>• DDC0864 ASIC dead time: 20 ns</li>
                                 </ul>
                             </div>
 
@@ -359,12 +358,12 @@
                     </button>
 
                     <p className="mt-4 text-gray-500 text-sm">
-                        Simulates 60 keV photon interaction in CZT photon counting detector
+                        Simulates 60 keV photon interaction in CdZnTe photon counting detector
                     </p>
 
                     {/* Footer */}
                     <div className="mt-8 pt-4 border-t border-gray-700 text-center text-gray-500 text-xs">
-                        <p>CZT Detector Timing Simulation | Shockley-Ramo Theorem</p>
+                        <p>CdZnTe Detector Timing Simulation | Shockley-Ramo Theorem</p>
                         <p className="mt-1">© 2024 Elmaddin Guliyev</p>
                     </div>
                 </div>
