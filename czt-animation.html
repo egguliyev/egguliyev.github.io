@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CZT Detector Charge Drift Animation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .back-link {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: #888;
+            text-decoration: none;
+            font-size: 14px;
+            z-index: 100;
+        }
+        .back-link:hover {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← Back to Home</a>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function CZTChargeAnimation() {
+            const [phase, setPhase] = useState('idle');
+            const [time, setTime] = useState(0);
+            const [electronCloud, setElectronCloud] = useState({ z: 50, radius: 8, opacity: 0 });
+            const [holeCloud, setHoleCloud] = useState({ z: 50, radius: 8, opacity: 0 });
+            const [photon, setPhoton] = useState({ y: -20, opacity: 1 });
+            const [flash, setFlash] = useState(0);
+            const [inducedCurrent, setInducedCurrent] = useState([]);
+            const animationRef = useRef(null);
+
+            const detectorHeight = 400;
+            const detectorWidth = 200;
+            const cathodeY = 50;
+            const anodeY = cathodeY + detectorHeight;
+
+            const electronSpeed = 2.5;
+            const holeSpeed = 0.17;
+            const diffusionRate = 0.15;
+
+            const resetAnimation = () => {
+                setPhase('idle');
+                setTime(0);
+                setElectronCloud({ z: 50, radius: 8, opacity: 0 });
+                setHoleCloud({ z: 50, radius: 8, opacity: 0 });
+                setPhoton({ y: -20, opacity: 1 });
+                setFlash(0);
+                setInducedCurrent([]);
+                if (animationRef.current) {
+                    cancelAnimationFrame(animationRef.current);
+                }
+            };
+
+            const startAnimation = () => {
+                resetAnimation();
+                setTimeout(() => setPhase('photon'), 50);
+            };
+
+            useEffect(() => {
+                if (phase === 'idle') return;
+
+                const animate = () => {
+                    setTime(t => {
+                        const newTime = t + 1;
+
+                        if (phase === 'photon') {
+                            setPhoton(p => {
+                                const newY = p.y + 4;
+                                if (newY >= cathodeY + 30) {
+                                    setPhase('interaction');
+                                    setFlash(1);
+                                    return { y: cathodeY + 30, opacity: 0 };
+                                }
+                                return { ...p, y: newY };
+                            });
+                        }
+
+                        if (phase === 'interaction') {
+                            setFlash(f => {
+                                if (f > 0) {
+                                    const newFlash = f - 0.05;
+                                    if (newFlash <= 0) {
+                                        setPhase('drift');
+                                        setElectronCloud({ z: cathodeY + 30, radius: 12, opacity: 1 });
+                                        setHoleCloud({ z: cathodeY + 30, radius: 12, opacity: 0.7 });
+                                        return 0;
+                                    }
+                                    return newFlash;
+                                }
+                                return 0;
+                            });
+                        }
+
+                        if (phase === 'drift') {
+                            setElectronCloud(ec => {
+                                const newZ = ec.z + electronSpeed;
+                                const newRadius = ec.radius + diffusionRate;
+
+                                const distFromAnode = anodeY - newZ;
+                                const pixelSize = 66;
+                                const weightingField = (pixelSize * pixelSize) / Math.pow(distFromAnode * distFromAnode + pixelSize * pixelSize, 1.5);
+                                const current = ec.opacity * electronSpeed * weightingField * 500;
+
+                                setInducedCurrent(ic => [...ic.slice(-150), current]);
+
+                                if (newZ >= anodeY - 5) {
+                                    setPhase('collected');
+                                    return { z: anodeY - 5, radius: newRadius, opacity: 0 };
+                                }
+
+                                const newOpacity = ec.opacity * 0.9995;
+                                return { z: newZ, radius: newRadius, opacity: newOpacity };
+                            });
+
+                            setHoleCloud(hc => {
+                                const newZ = hc.z - holeSpeed;
+                                const newRadius = hc.radius + diffusionRate * 0.5;
+                                const newOpacity = hc.opacity * 0.995;
+
+                                if (newOpacity < 0.05 || newZ <= cathodeY) {
+                                    return { ...hc, opacity: 0 };
+                                }
+                                return { z: newZ, radius: newRadius, opacity: newOpacity };
+                            });
+                        }
+
+                        return newTime;
+                    });
+
+                    if (phase !== 'collected') {
+                        animationRef.current = requestAnimationFrame(animate);
+                    }
+                };
+
+                animationRef.current = requestAnimationFrame(animate);
+
+                return () => {
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, [phase]);
+
+            const realTimeNs = (time * 0.4).toFixed(1);
+            const electronDepth = phase === 'drift' || phase === 'collected'
+                ? ((electronCloud.z - cathodeY) / detectorHeight * 2000).toFixed(0)
+                : 0;
+
+            return (
+                <div className="flex flex-col items-center p-4 bg-gray-900 min-h-screen text-white">
+                    <h1 className="text-2xl font-bold mb-2 mt-8">CZT Detector: Charge Cloud Drift Animation</h1>
+                    <p className="text-gray-400 mb-4">330 × 330 × 2000 µm³ pixel | -1000V bias | Photon Counting CT</p>
+
+                    <div className="flex flex-wrap justify-center gap-8">
+                        {/* Main detector view */}
+                        <div className="relative">
+                            <svg width={300} height={520} className="bg-gray-800 rounded-lg">
+                                {/* Detector body */}
+                                <rect x={50} y={cathodeY} width={detectorWidth} height={detectorHeight}
+                                      fill="#1a1a2e" stroke="#4a4a6a" strokeWidth="2" />
+
+                                {/* Cathode */}
+                                <rect x={45} y={cathodeY - 10} width={detectorWidth + 10} height={12}
+                                      fill="#c0c0c0" stroke="#808080" strokeWidth="1" />
+                                <text x={150} y={cathodeY - 18} textAnchor="middle" fill="#aaa" fontSize="12">
+                                    Cathode (-1000V)
+                                </text>
+
+                                {/* Anode pixels */}
+                                {[0, 1, 2].map(i => (
+                                    <rect key={i} x={55 + i * 68} y={anodeY} width={60} height={10}
+                                          fill="#ffd700" stroke="#b8860b" strokeWidth="1" />
+                                ))}
+                                <text x={150} y={anodeY + 28} textAnchor="middle" fill="#aaa" fontSize="12">
+                                    Anode (0V)
+                                </text>
+
+                                {/* Electric field lines */}
+                                {[0, 1, 2, 3, 4].map(i => (
+                                    <g key={i}>
+                                        <line x1={70 + i * 40} y1={cathodeY + 20} x2={70 + i * 40} y2={anodeY - 10}
+                                              stroke="#3a3a5a" strokeWidth="1" strokeDasharray="4,4" />
+                                        <polygon points={`${70 + i * 40 - 4},${anodeY - 20} ${70 + i * 40 + 4},${anodeY - 20} ${70 + i * 40},${anodeY - 10}`}
+                                                 fill="#3a3a5a" />
+                                    </g>
+                                ))}
+
+                                {/* Depth scale */}
+                                <text x={265} y={cathodeY + 10} fill="#666" fontSize="10">0 µm</text>
+                                <text x={265} y={cathodeY + detectorHeight/2} fill="#666" fontSize="10">1000</text>
+                                <text x={265} y={anodeY - 5} fill="#666" fontSize="10">2000</text>
+
+                                {/* Incoming photon */}
+                                {phase === 'photon' && (
+                                    <g>
+                                        <line x1={150} y1={photon.y - 15} x2={150} y2={photon.y}
+                                              stroke="#ff6b6b" strokeWidth="3" opacity={photon.opacity} />
+                                        <polygon points={`${150},${photon.y + 8} ${145},${photon.y - 2} ${155},${photon.y - 2}`}
+                                                 fill="#ff6b6b" opacity={photon.opacity} />
+                                        <text x={150} y={photon.y - 25} textAnchor="middle" fill="#ff6b6b" fontSize="11">
+                                            60 keV γ
+                                        </text>
+                                    </g>
+                                )}
+
+                                {/* Interaction flash */}
+                                {flash > 0 && (
+                                    <circle cx={150} cy={cathodeY + 30} r={30 * flash + 10}
+                                            fill={`rgba(255, 255, 100, ${flash * 0.8})`} />
+                                )}
+
+                                {/* Hole cloud */}
+                                {holeCloud.opacity > 0 && (
+                                    <g>
+                                        <ellipse cx={150} cy={holeCloud.z} rx={holeCloud.radius} ry={holeCloud.radius * 0.6}
+                                                 fill={`rgba(255, 100, 100, ${holeCloud.opacity * 0.6})`} />
+                                        <ellipse cx={150} cy={holeCloud.z} rx={holeCloud.radius * 0.6} ry={holeCloud.radius * 0.4}
+                                                 fill={`rgba(255, 150, 150, ${holeCloud.opacity * 0.8})`} />
+                                        {holeCloud.opacity > 0.1 && (
+                                            <text x={150} y={holeCloud.z - holeCloud.radius - 5} textAnchor="middle"
+                                                  fill="#ff6666" fontSize="10" opacity={holeCloud.opacity}>
+                                                h⁺ (trapped)
+                                            </text>
+                                        )}
+                                    </g>
+                                )}
+
+                                {/* Electron cloud */}
+                                {electronCloud.opacity > 0 && (
+                                    <g>
+                                        <ellipse cx={150} cy={electronCloud.z}
+                                                 rx={electronCloud.radius * 1.5} ry={electronCloud.radius * 0.8}
+                                                 fill={`rgba(50, 150, 255, ${electronCloud.opacity * 0.3})`} />
+                                        <ellipse cx={150} cy={electronCloud.z}
+                                                 rx={electronCloud.radius} ry={electronCloud.radius * 0.6}
+                                                 fill={`rgba(80, 180, 255, ${electronCloud.opacity * 0.7})`} />
+                                        <ellipse cx={150} cy={electronCloud.z}
+                                                 rx={electronCloud.radius * 0.5} ry={electronCloud.radius * 0.3}
+                                                 fill={`rgba(150, 220, 255, ${electronCloud.opacity})`} />
+                                        <text x={150} y={electronCloud.z + electronCloud.radius + 15} textAnchor="middle"
+                                              fill="#66aaff" fontSize="11" fontWeight="bold">
+                                            e⁻ cloud
+                                        </text>
+                                    </g>
+                                )}
+
+                                <text x={30} y={cathodeY + detectorHeight/2} fill="#666" fontSize="11"
+                                      transform={`rotate(-90, 30, ${cathodeY + detectorHeight/2})`} textAnchor="middle">
+                                    CdZnTe Crystal
+                                </text>
+                            </svg>
+
+                            {/* Info panel */}
+                            <div className="mt-4 p-3 bg-gray-800 rounded-lg w-full">
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div>Time: <span className="text-cyan-400 font-mono">{realTimeNs} ns</span></div>
+                                    <div>Depth: <span className="text-cyan-400 font-mono">{electronDepth} µm</span></div>
+                                    <div>v<sub>e</sub>: <span className="text-blue-400 font-mono">52.5 µm/ns</span></div>
+                                    <div>v<sub>h</sub>: <span className="text-red-400 font-mono">3.5 µm/ns</span></div>
+                                </div>
+                                {phase === 'collected' && (
+                                    <div className="mt-2 text-green-400 text-center font-bold">
+                                        ✓ Electrons collected at anode (~38 ns)
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Right panel */}
+                        <div className="flex flex-col">
+                            {/* Current pulse graph */}
+                            <div className="bg-gray-800 rounded-lg p-3">
+                                <h3 className="text-sm font-bold mb-2 text-center">Induced Current (Shockley-Ramo)</h3>
+                                <svg width={280} height={200} className="bg-gray-900 rounded">
+                                    <line x1={40} y1={170} x2={270} y2={170} stroke="#444" strokeWidth="1" />
+                                    <line x1={40} y1={20} x2={40} y2={170} stroke="#444" strokeWidth="1" />
+
+                                    <text x={155} y={195} textAnchor="middle" fill="#888" fontSize="10">Time (ns)</text>
+                                    <text x={15} y={95} fill="#888" fontSize="10" transform="rotate(-90, 15, 95)">Current</text>
+
+                                    <text x={40} y={182} fill="#666" fontSize="9">0</text>
+                                    <text x={98} y={182} fill="#666" fontSize="9">10</text>
+                                    <text x={155} y={182} fill="#666" fontSize="9">20</text>
+                                    <text x={213} y={182} fill="#666" fontSize="9">30</text>
+                                    <text x={265} y={182} fill="#666" fontSize="9">40</text>
+
+                                    {/* 20ns dead time marker */}
+                                    <line x1={155} y1={20} x2={155} y2={170} stroke="#ff6666" strokeWidth="1" strokeDasharray="3,3" />
+                                    <text x={157} y={30} fill="#ff6666" fontSize="9">20ns ASIC</text>
+
+                                    {/* Current trace */}
+                                    {inducedCurrent.length > 1 && (
+                                        <path
+                                            d={`M ${40 + inducedCurrent.length * 1.5} ${170 - Math.min(inducedCurrent[0] || 0, 140)} ` +
+                                               inducedCurrent.map((c, i) =>
+                                                   `L ${40 + (inducedCurrent.length - i) * 1.5} ${170 - Math.min(c, 140)}`
+                                               ).join(' ')}
+                                            fill="none"
+                                            stroke="#66aaff"
+                                            strokeWidth="2"
+                                        />
+                                    )}
+                                </svg>
+                                <p className="text-xs text-gray-500 mt-2 text-center">
+                                    Signal peaks when e⁻ enters weighting field near anode
+                                </p>
+                            </div>
+
+                            {/* Physics explanation */}
+                            <div className="mt-4 p-3 bg-gray-800 rounded-lg text-xs max-w-[280px]">
+                                <h3 className="font-bold mb-2 text-yellow-400">Physics Summary:</h3>
+                                <ul className="space-y-1 text-gray-300">
+                                    <li>• γ photon absorbed near cathode surface</li>
+                                    <li>• Creates ~13,000 e⁻/h⁺ pairs (60 keV)</li>
+                                    <li>• <span className="text-blue-400">Electrons</span> drift to anode at 52.5 µm/ns</li>
+                                    <li>• <span className="text-red-400">Holes</span> drift slowly (3.5 µm/ns), get trapped</li>
+                                    <li>• Cloud expands due to diffusion & repulsion</li>
+                                    <li>• <span className="text-yellow-400">Transit time ≈ 38 ns</span></li>
+                                    <li>• DDC0864 ASIC dead time: 20 ns</li>
+                                </ul>
+                            </div>
+
+                            {/* Material parameters */}
+                            <div className="mt-4 p-3 bg-gray-800 rounded-lg text-xs max-w-[280px]">
+                                <h3 className="font-bold mb-2 text-cyan-400">CdZnTe Parameters:</h3>
+                                <div className="grid grid-cols-2 gap-1 text-gray-300">
+                                    <div>µ<sub>e</sub>: 1050 cm²/Vs</div>
+                                    <div>µ<sub>h</sub>: 70 cm²/Vs</div>
+                                    <div>τ<sub>e</sub>: 3 µs</div>
+                                    <div>τ<sub>h</sub>: 0.5 µs</div>
+                                    <div>E-field: 5 kV/cm</div>
+                                    <div>Thickness: 2 mm</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Control button */}
+                    <button
+                        onClick={startAnimation}
+                        className="mt-6 px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold text-lg transition-colors shadow-lg"
+                    >
+                        {phase === 'idle' ? '▶ Start Animation' : '↻ Restart'}
+                    </button>
+
+                    <p className="mt-4 text-gray-500 text-sm">
+                        Simulates 60 keV photon interaction in CZT photon counting detector
+                    </p>
+
+                    {/* Footer */}
+                    <div className="mt-8 pt-4 border-t border-gray-700 text-center text-gray-500 text-xs">
+                        <p>CZT Detector Timing Simulation | Shockley-Ramo Theorem</p>
+                        <p className="mt-1">© 2024 Elmaddin Guliyev</p>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CZTChargeAnimation />);
+    </script>
+</body>
+</html>
