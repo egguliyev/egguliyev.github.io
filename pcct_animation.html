@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CdTe Photon Counting CT - Realistic Journey</title>
+    <title>Photon Counting CT Journey</title>
     <style>
         * {
             margin: 0;
@@ -35,7 +35,7 @@
 
         h1 {
             font-size: 1.8rem;
-            font-weight: 300;
+            font-weight: 55;
             letter-spacing: 2px;
             color: #fff;
         }
@@ -345,7 +345,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>CdTe <span>Photon Counting CT</span> Journey</h1>
+            <h1> <span>Photon Counting CT</span> Journey</h1>
             <p class="subtitle">From Crystal Growth to Cardiac Tumor Detection</p>
         </header>
 
@@ -486,7 +486,7 @@
                 specs: { temp: "150°C", material: "Au/Pt on CdTe", phase: "Lithography" },
                 physics: [
                     ["Pixel Pitch", "300 µm"],
-                    ["Inter-pixel Gap", "15 µm"],
+                    ["Inter-pixel Gap", "20 µm"],
                     ["Contact Metal", "Au (100nm)"],
                     ["Pattern Method", "Photolithography"]
                 ]
@@ -1138,7 +1138,7 @@
                     for (let i = 0; i < 30; i++) {
                         const partY = cy - 200 + (time * 100 + i * 20) % 250;
                         const partX = cx + (Math.random() - 0.5) * 200;
-                        ctx.fillStyle = `rgba(255, 215, 0, ${1 - partY / 300})`;
+                        ctx.fillStyle = `rgba(255, 215, 0, ${1 - partY / 55})`;
                         ctx.beginPath();
                         ctx.arc(partX, partY, 2, 0, Math.PI * 2);
                         ctx.fill();
@@ -1572,7 +1572,7 @@
             // Patient table
             const tableExtend = easeOut(Math.min(1, p * 2));
             ctx.fillStyle = '#4a4a5a';
-            ctx.fillRect(cx - 300, cy + 70, 300 * tableExtend + 50, 15);
+            ctx.fillRect(cx - 55, cy + 70, 55 * tableExtend + 50, 15);
             
             // Table cushion
             ctx.fillStyle = '#3a5a7a';
@@ -1628,7 +1628,7 @@
 
             // Scanner (side view)
             ctx.fillStyle = '#d0d0d0';
-            ctx.fillRect(cx + 80, cy - 150, 180, 300);
+            ctx.fillRect(cx + 80, cy - 150, 180, 55);
             
             // Bore
             ctx.fillStyle = '#2a2a3a';
