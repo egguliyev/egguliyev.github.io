@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photon Counting CT Journey</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #0a1a2a 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7b2fff, #ff2d95);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8892b0;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        .stage-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stage-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #333;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .stage-dot.active {
+            background: #00d4ff;
+            box-shadow: 0 0 15px #00d4ff;
+        }
+
+        .stage-dot:hover::after {
+            content: attr(data-stage);
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+        }
+
+        .animation-container {
+            background: rgba(10, 20, 40, 0.8);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .stage-title {
+            text-align: center;
+            font-size: 1.5rem;
+            color: #00d4ff;
+            margin-bottom: 15px;
+            min-height: 40px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #0066ff);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .info-panel {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0, 212, 255, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .info-panel h3 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .info-panel p {
+            color: #a8b2d1;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #7b2fff);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #8892b0;
+        }
+
+        .speed-control input {
+            width: 100px;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 5px rgba(0, 212, 255, 0.5)); }
+            50% { filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.8)); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 Photon Counting CT Journey</h1>
+        <p class="subtitle">From Crystal Growth to Cardiac Tumor Detection</p>
+
+        <div class="stage-indicator" id="stageIndicator"></div>
+
+        <div class="animation-container">
+            <h2 class="stage-title" id="stageTitle">Stage 1: CdTe Crystal Growth</h2>
+            
+            <div class="canvas-wrapper">
+                <canvas id="animationCanvas"></canvas>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-secondary" id="prevBtn">◀ Previous</button>
+                <button class="btn btn-primary" id="playBtn">▶ Play All</button>
+                <button class="btn btn-secondary" id="nextBtn">Next ▶</button>
+                <div class="speed-control">
+                    <label>Speed:</label>
+                    <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1">
+                    <span id="speedValue">1x</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-panel" id="infoPanel">
+            <h3>About This Stage</h3>
+            <p id="infoText">CdTe (Cadmium Telluride) crystals are grown using the Traveling Heater Method (THM) or Bridgman technique at temperatures around 1100°C. The high-purity crystal forms with excellent charge transport properties.</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('animationCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Responsive canvas
+        function resizeCanvas() {
+            const wrapper = canvas.parentElement;
+            canvas.width = Math.min(wrapper.clientWidth - 40, 900);
+            canvas.height = 500;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Animation state
+        let currentStage = 0;
+        let animationProgress = 0;
+        let isPlaying = false;
+        let animationSpeed = 1;
+        let animationId = null;
+
+        const stages = [
+            {
+                name: "CdTe Crystal Growth",
+                info: "CdTe (Cadmium Telluride) crystals are grown using the Traveling Heater Method (THM) at ~1100°C. The compound semiconductor forms with a zinc blende structure, providing excellent X-ray stopping power (Z=48 for Cd, Z=52 for Te) and charge transport properties ideal for direct-conversion detectors."
+            },
+            {
+                name: "Wafer Processing",
+                info: "The grown ingot is sliced into thin wafers (1-3mm) using wire saws. Each wafer undergoes precision polishing, chemical etching, and surface passivation to minimize defects and leakage currents that could degrade spectroscopic performance."
+            },
+            {
+                name: "Pixel Electrode Patterning",
+                info: "Using photolithography, pixel electrodes are patterned on the CdTe wafer. Typical pixel pitches range from 100-500µm. The cathode is a continuous contact while the anode side features the pixelated pattern for spatial resolution."
+            },
+            {
+                name: "Detector Module Assembly",
+                info: "Individual detector tiles are flip-chip bonded to Application-Specific Integrated Circuits (ASICs) using indium bump bonds. The ASIC provides per-pixel charge amplification, pulse shaping, and energy discrimination with multiple thresholds."
+            },
+            {
+                name: "Multi-Module Integration",
+                info: "Multiple detector modules are tiled together to create larger detector arrays. Precise alignment ensures minimal inter-module gaps. Each module connects to data acquisition electronics for photon counting readout at rates exceeding 100 million counts/second."
+            },
+            {
+                name: "Gantry Installation",
+                info: "The detector array is mounted in a curved geometry matching the CT gantry arc. The detector spans ~40-80° of arc length with thousands of pixels arranged to capture the full fan beam from the rotating X-ray source."
+            },
+            {
+                name: "PCCT System Assembly",
+                info: "The complete Photon Counting CT scanner integrates the detector arc, high-power X-ray tube (120-140 kVp), slip ring for continuous rotation, patient table, and reconstruction computers. The system achieves sub-second rotation for cardiac imaging."
+            },
+            {
+                name: "Patient Positioning",
+                info: "The patient is positioned on the motorized table with ECG leads attached for cardiac gating. Scout scans determine the optimal scan range. Contrast injection timing is calculated for coronary enhancement during the cardiac CT protocol."
+            },
+            {
+                name: "Cardiac CT Acquisition",
+                info: "High-pitch helical scanning synchronized to the cardiac cycle captures the heart in diastole when motion is minimal. Photon counting enables spectral imaging with K-edge detection of iodine contrast at significantly reduced radiation dose compared to conventional CT."
+            },
+            {
+                name: "Tumor Detection & Analysis",
+                info: "Multi-energy spectral decomposition separates iodine uptake, calcium, and soft tissue. The enhanced contrast resolution enables detection of small lesions and characterization of tissue composition. Virtual monoenergetic images optimize tumor-to-background contrast for diagnosis."
+            }
+        ];
+
+        // Initialize stage indicators
+        const stageIndicator = document.getElementById('stageIndicator');
+        stages.forEach((stage, i) => {
+            const dot = document.createElement('div');
+            dot.className = 'stage-dot' + (i === 0 ? ' active' : '');
+            dot.dataset.stage = stage.name;
+            dot.addEventListener('click', () => goToStage(i));
+            stageIndicator.appendChild(dot);
+        });
+
+        function updateStageIndicators() {
+            document.querySelectorAll('.stage-dot').forEach((dot, i) => {
+                dot.classList.toggle('active', i === currentStage);
+            });
+        }
+
+        // Drawing functions for each stage
+        function drawCrystalGrowth(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Furnace
+            ctx.fillStyle = '#2a2a4a';
+            ctx.fillRect(cx - 80, cy - 180, 160, 360);
+            
+            // Heating elements
+            const heatIntensity = 0.5 + 0.5 * Math.sin(Date.now() / 200);
+            for (let i = 0; i < 8; i++) {
+                const y = cy - 150 + i * 40;
+                const gradient = ctx.createLinearGradient(cx - 90, y, cx - 70, y);
+                gradient.addColorStop(0, `rgba(255, ${100 + heatIntensity * 100}, 0, ${0.5 + heatIntensity * 0.5})`);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(cx - 90, y - 5, 20, 10);
+                
+                const gradient2 = ctx.createLinearGradient(cx + 70, y, cx + 90, y);
+                gradient2.addColorStop(0, 'transparent');
+                gradient2.addColorStop(1, `rgba(255, ${100 + heatIntensity * 100}, 0, ${0.5 + heatIntensity * 0.5})`);
+                ctx.fillStyle = gradient2;
+                ctx.fillRect(cx + 70, y - 5, 20, 10);
+            }
+
+            // Crucible
+            ctx.fillStyle = '#4a4a6a';
+            ctx.beginPath();
+            ctx.moveTo(cx - 50, cy - 120);
+            ctx.lineTo(cx - 60, cy + 120);
+            ctx.lineTo(cx + 60, cy + 120);
+            ctx.lineTo(cx + 50, cy - 120);
+            ctx.closePath();
+            ctx.fill();
+
+            // Growing crystal
+            const crystalHeight = progress * 200;
+            const gradient = ctx.createLinearGradient(cx, cy + 120 - crystalHeight, cx, cy + 120);
+            gradient.addColorStop(0, '#1a3a5a');
+            gradient.addColorStop(0.3, '#2a5a8a');
+            gradient.addColorStop(0.6, '#3a7aba');
+            gradient.addColorStop(1, '#4a9aea');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(cx - 40, cy + 120);
+            ctx.lineTo(cx - 35 + progress * 5, cy + 120 - crystalHeight);
+            ctx.lineTo(cx + 35 - progress * 5, cy + 120 - crystalHeight);
+            ctx.lineTo(cx + 40, cy + 120);
+            ctx.closePath();
+            ctx.fill();
+
+            // Crystal facets
+            if (progress > 0.3) {
+                ctx.strokeStyle = 'rgba(100, 200, 255, 0.3)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < Math.floor(progress * 10); i++) {
+                    const y = cy + 110 - i * 20;
+                    if (y > cy + 120 - crystalHeight) {
+                        ctx.beginPath();
+                        ctx.moveTo(cx - 35, y);
+                        ctx.lineTo(cx + 35, y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Melt zone
+            ctx.fillStyle = `rgba(255, 150, 50, ${0.3 + heatIntensity * 0.4})`;
+            ctx.fillRect(cx - 45, cy + 120 - crystalHeight - 10, 90, 15);
+
+            // Temperature display
+            ctx.fillStyle = '#00ff88';
+            ctx.font = '14px monospace';
+            ctx.fillText(`T: ${Math.floor(1050 + progress * 50)}°C`, cx + 100, cy - 100);
+            ctx.fillText(`Growth: ${(progress * 100).toFixed(0)}%`, cx + 100, cy - 80);
+
+            // Labels
+            ctx.fillStyle = '#8892b0';
+            ctx.font = '12px sans-serif';
+            ctx.fillText('CdTe Seed', cx - 25, cy + 150);
+            ctx.fillText('Heater Zone', cx + 100, cy);
+        }
+
+        function drawWaferProcessing(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Ingot (left side)
+            if (progress < 0.5) {
+                const ingotX = cx - 200 + progress * 100;
+                ctx.fillStyle = '#3a7aba';
+                ctx.beginPath();
+                ctx.ellipse(ingotX, cy, 40, 100, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#5a9ada';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Wire saw
+                if (progress > 0.2) {
+                    const sawY = cy - 80 + (progress - 0.2) * 400;
+                    ctx.strokeStyle = '#ffaa00';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(ingotX - 60, sawY);
+                    ctx.lineTo(ingotX + 60, sawY);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+
+            // Wafers appearing
+            const waferCount = Math.floor(progress * 8);
+            for (let i = 0; i < waferCount; i++) {
+                const waferX = cx - 100 + i * 60;
+                const waferProgress = Math.min(1, (progress - i * 0.1) * 3);
+                
+                if (waferProgress > 0) {
+                    ctx.save();
+                    ctx.translate(waferX, cy);
+                    ctx.rotate(-0.2);
+                    
+                    // Wafer
+                    const gradient = ctx.createLinearGradient(-30, -30, 30, 30);
+                    gradient.addColorStop(0, '#2a5a8a');
+                    gradient.addColorStop(0.5, '#4a9aea');
+                    gradient.addColorStop(1, '#2a5a8a');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 35, 35, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Polishing effect
+                    if (progress > 0.6 && i < waferCount - 2) {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                        ctx.beginPath();
+                        ctx.ellipse(-10, -10, 15, 10, 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.restore();
+                }
+            }
+
+            // Processing steps labels
+            ctx.fillStyle = '#00d4ff';
+            ctx.font = '12px sans-serif';
+            const steps = ['Slicing', 'Polishing', 'Etching', 'Passivation'];
+            const stepIndex = Math.floor(progress * 4);
+            ctx.fillText(`Step: ${steps[Math.min(stepIndex, 3)]}`, cx + 150, cy - 80);
+
+            // Progress arrows
+            ctx.strokeStyle = '#00d4ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cx - 250, cy + 100);
+            ctx.lineTo(cx + 250, cy + 100);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx + 240, cy + 95);
+            ctx.lineTo(cx + 250, cy + 100);
+            ctx.lineTo(cx + 240, cy + 105);
+            ctx.fill();
+        }
+
+        function drawPixelPatterning(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Wafer base
+            ctx.fillStyle = '#2a5a8a';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 150, 150, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Photoresist layer (appears first)
+            if (progress < 0.3) {
+                ctx.fillStyle = `rgba(255, 200, 50, ${progress * 3})`;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 145, 145, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // UV exposure effect
+            if (progress > 0.2 && progress < 0.5) {
+                const uvIntensity = Math.sin((progress - 0.2) * 10) * 0.5 + 0.5;
+                ctx.fillStyle = `rgba(150, 100, 255, ${uvIntensity * 0.5})`;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 145, 145, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // UV rays
+                ctx.strokeStyle = `rgba(150, 100, 255, ${uvIntensity})`;
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.moveTo(cx + Math.cos(angle) * 180, cy + Math.sin(angle) * 180 - 50);
+                    ctx.lineTo(cx + Math.cos(angle) * 100, cy + Math.sin(angle) * 100);
+                    ctx.stroke();
+                }
+            }
+
+            // Pixel pattern appearing
+            if (progress > 0.4) {
+                const pixelProgress = (progress - 0.4) / 0.6;
+                const pixelSize = 12;
+                const gap = 2;
+                const gridRadius = 130;
+
+                for (let x = -10; x <= 10; x++) {
+                    for (let y = -10; y <= 10; y++) {
+                        const px = cx + x * (pixelSize + gap);
+                        const py = cy + y * (pixelSize + gap);
+                        const dist = Math.sqrt(x * x + y * y);
+                        
+                        if (dist <= 10 && dist <= pixelProgress * 12) {
+                            // Pixel electrode
+                            ctx.fillStyle = '#ffd700';
+                            ctx.fillRect(px - pixelSize/2, py - pixelSize/2, pixelSize, pixelSize);
+                            
+                            // Active pixel highlight
+                            if (Math.random() < 0.05) {
+                                ctx.fillStyle = 'rgba(255, 255, 100, 0.8)';
+                                ctx.fillRect(px - pixelSize/2, py - pixelSize/2, pixelSize, pixelSize);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Labels
+            ctx.fillStyle = '#8892b0';
+            ctx.font = '12px sans-serif';
+            ctx.fillText('Pixel Pitch: 300 µm', cx + 160, cy - 100);
+            ctx.fillText(`Pixels: ${Math.floor(progress * 400)}`, cx + 160, cy - 80);
+        }
+
+        function drawModuleAssembly(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // ASIC board
+            ctx.fillStyle = '#1a3a1a';
+            ctx.fillRect(cx - 120, cy + 50, 240, 80);
+            
+            // ASIC components
+            ctx.fillStyle = '#2a2a2a';
+            for (let i = 0; i < 6; i++) {
+                ctx.fillRect(cx - 100 + i * 35, cy + 60, 25, 25);
+            }
+
+            // Bump bonds (appearing)
+            if (progress > 0.2) {
+                const bondProgress = (progress - 0.2) / 0.3;
+                ctx.fillStyle = '#c0c0c0';
+                for (let x = 0; x < 8; x++) {
+                    for (let y = 0; y < 4; y++) {
+                        if ((x + y * 8) / 32 < bondProgress) {
+                            ctx.beginPath();
+                            ctx.arc(cx - 90 + x * 25, cy + 35 - y * 8, 2, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+
+            // CdTe detector descending
+            const detectorY = cy - 150 + Math.min(progress * 2, 1) * 130;
+            
+            ctx.fillStyle = '#4a9aea';
+            ctx.fillRect(cx - 100, detectorY, 200, 30);
+            
+            // Pixel pattern on detector
+            ctx.fillStyle = '#ffd700';
+            for (let x = 0; x < 16; x++) {
+                for (let y = 0; y < 2; y++) {
+                    ctx.fillRect(cx - 95 + x * 12, detectorY + 5 + y * 12, 8, 8);
+                }
+            }
+
+            // Connection flash when bonded
+            if (progress > 0.5 && progress < 0.7) {
+                const flashIntensity = Math.sin((progress - 0.5) * 30);
+                ctx.fillStyle = `rgba(255, 255, 200, ${flashIntensity * 0.5})`;
+                ctx.fillRect(cx - 100, cy - 20, 200, 70);
+            }
+
+            // Bonded module
+            if (progress > 0.7) {
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cx - 105, detectorY - 5, 210, 145);
+                
+                ctx.fillStyle = '#00ff88';
+                ctx.font = '14px sans-serif';
+                ctx.fillText('✓ Module Bonded', cx - 50, cy + 160);
+            }
+
+            // Labels
+            ctx.fillStyle = '#8892b0';
+            ctx.font = '12px sans-serif';
+            ctx.fillText('CdTe Detector', cx + 120, detectorY + 15);
+            ctx.fillText('Indium Bumps', cx + 120, cy + 30);
+            ctx.fillText('Readout ASIC', cx + 130, cy + 90);
+        }
+
+        function drawMultiModuleIntegration(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Module count based on progress
+            const moduleCount = Math.floor(progress * 8) + 1;
+            
+            // Draw modules in arc formation
+            for (let i = 0; i < moduleCount; i++) {
+                const angle = (i - moduleCount/2 + 0.5) * 0.15;
+                const moduleX = cx + Math.sin(angle) * 200;
+                const moduleY = cy - 50 + Math.cos(angle) * 50 - Math.abs(i - moduleCount/2) * 10;
+                
+                const appearProgress = Math.min(1, (progress - i * 0.1) * 5);
+                if (appearProgress > 0) {
+                    ctx.save();
+                    ctx.translate(moduleX, moduleY);
+                    ctx.rotate(angle);
+                    ctx.globalAlpha = appearProgress;
+
+                    // Module housing
+                    ctx.fillStyle = '#2a3a4a';
+                    ctx.fillRect(-40, -25, 80, 50);
+                    
+                    // Detector surface
+                    ctx.fillStyle = '#4a9aea';
+                    ctx.fillRect(-35, -20, 70, 20);
+                    
+                    // Pixels
+                    ctx.fillStyle = '#ffd700';
+                    for (let px = 0; px < 6; px++) {
+                        for (let py = 0; py < 2; py++) {
+                            ctx.fillRect(-32 + px * 11, -18 + py * 8, 8, 6);
+                        }
+                    }
+
+                    ctx.restore();
+                }
+            }
+
+            // Connection lines between modules
+            if (progress > 0.5) {
+                ctx.strokeStyle = `rgba(0, 255, 136, ${(progress - 0.5) * 2})`;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                
+                for (let i = 0; i < moduleCount - 1; i++) {
+                    const angle1 = (i - moduleCount/2 + 0.5) * 0.15;
+                    const angle2 = (i + 1 - moduleCount/2 + 0.5) * 0.15;
+                    const x1 = cx + Math.sin(angle1) * 200 + 35;
+                    const y1 = cy - 50 + Math.cos(angle1) * 50 - Math.abs(i - moduleCount/2) * 10;
+                    const x2 = cx + Math.sin(angle2) * 200 - 35;
+                    const y2 = cy - 50 + Math.cos(angle2) * 50 - Math.abs(i + 1 - moduleCount/2) * 10;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+
+            // Data readout cables
+            if (progress > 0.7) {
+                ctx.strokeStyle = '#ff6600';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + 50);
+                ctx.quadraticCurveTo(cx, cy + 100, cx, cy + 150);
+                ctx.stroke();
+                
+                // DAQ box
+                ctx.fillStyle = '#1a1a2a';
+                ctx.fillRect(cx - 60, cy + 150, 120, 60);
+                ctx.fillStyle = '#00ff88';
+                ctx.font = '12px monospace';
+                ctx.fillText('DAQ System', cx - 35, cy + 185);
+            }
+
+            // Stats
+            ctx.fillStyle = '#8892b0';
+            ctx.font = '12px sans-serif';
+            ctx.fillText(`Modules: ${moduleCount}`, cx + 180, cy - 100);
+            ctx.fillText(`Pixels: ${moduleCount * 256}`, cx + 180, cy - 80);
+        }
+
+        function drawGantryInstallation(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Gantry ring
+            ctx.strokeStyle = '#4a4a6a';
+            ctx.lineWidth = 40;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 180, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Inner ring
+            ctx.strokeStyle = '#3a3a5a';
+            ctx.lineWidth = 20;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 140, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Detector arc (installing)
+            const arcLength = progress * Math.PI * 0.8;
+            const arcStart = Math.PI * 0.6;
+            
+            ctx.strokeStyle = '#4a9aea';
+            ctx.lineWidth = 15;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 160, arcStart, arcStart + arcLength);
+            ctx.stroke();
+
+            // Individual detector modules on arc
+            const moduleCount = Math.floor(progress * 12);
+            for (let i = 0; i < moduleCount; i++) {
+                const angle = arcStart + (i / 12) * Math.PI * 0.8;
+                const mx = cx + Math.cos(angle) * 160;
+                const my = cy + Math.sin(angle) * 160;
+                
+                ctx.save();
+                ctx.translate(mx, my);
+                ctx.rotate(angle + Math.PI / 2);
+                
+                ctx.fillStyle = '#ffd700';
+                ctx.fillRect(-8, -5, 16, 4);
+                
+                ctx.restore();
+            }
+
+            // X-ray tube position
+            const tubeAngle = Math.PI * 1.5;
+            const tubeX = cx + Math.cos(tubeAngle) * 160;
+            const tubeY = cy + Math.sin(tubeAngle) * 160;
+            
+            ctx.fillStyle = '#ff6600';
+            ctx.beginPath();
+            ctx.arc(tubeX, tubeY, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('X-ray', tubeX - 15, tubeY + 3);
+
+            // Fan beam (if progress > 0.5)
+            if (progress > 0.5) {
+                const beamOpacity = (progress - 0.5) * 2;
+                ctx.fillStyle = `rgba(255, 200, 0, ${beamOpacity * 0.2})`;
+                ctx.beginPath();
+                ctx.moveTo(tubeX, tubeY);
+                ctx.arc(tubeX, tubeY, 300, arcStart, arcStart + arcLength);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Bore opening
+            ctx.fillStyle = '#0a0a1a';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 100, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Labels
+            ctx.fillStyle = '#8892b0';
+            ctx.font = '12px sans-serif';
+            ctx.fillText('Detector Arc', cx + 120, cy + 180);
+            ctx.fillText(`Coverage: ${(progress * 80).toFixed(0)}°`, cx + 180, cy - 50);
+        }
+
+        function drawPCCTAssembly(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Housing
+            ctx.fillStyle = '#e8e8e8';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 200, 200, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Gantry opening
+            ctx.fillStyle = '#2a2a4a';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 180, 180, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rotating components
+            const rotation = Date.now() / 1000 * progress;
+            
+            // X-ray tube
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(rotation);
+            
+            ctx.fillStyle = '#ff6600';
+            ctx.beginPath();
+            ctx.arc(0, -150, 15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Detector arc (opposite side)
+            ctx.strokeStyle = '#4a9aea';
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.arc(0, 0, 150, Math.PI * 0.3, Math.PI * 0.7);
+            ctx.stroke();
+            
+            ctx.restore();
+
+            // Bore
+            ctx.fillStyle = '#1a1a2a';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 90, 90, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Patient table
+            if (progress > 0.3) {
+                const tableExtend = Math.min(1, (progress - 0.3) * 2);
+                ctx.fillStyle = '#3a3a5a';
+                ctx.fillRect(cx - 250 * tableExtend, cy - 10, 250 * tableExtend, 20);
+                ctx.fillRect(cx - 40, cy + 10, 80, 100);
+            }
+
+            // Console (right side)
+            if (progress > 0.6) {
+                ctx.fillStyle = '#2a2a3a';
+                ctx.fillRect(cx + 250, cy - 80, 100, 160);
+                
+                // Screen
+                ctx.fillStyle = '#001a33';
+                ctx.fillRect(cx + 260, cy - 70, 80, 60);
+                
+                // Screen content
+                ctx.fillStyle = '#00d4ff';
+                ctx.fillRect(cx + 270, cy - 60, 60, 40);
+            }
+
+            // System status
+            if (progress > 0.8) {
+                ctx.fillStyle = '#00ff88';
+                ctx.font = '16px sans-serif';
+                ctx.fillText('✓ PCCT System Ready', cx - 70, cy + 200);
+            }
+
+            // Labels
+            ctx.fillStyle = '#8892b0';
+            ctx.font = '11px sans-serif';
+            ctx.fillText('Photon Counting CT', cx - 50, cy - 180);
+        }
+
+        function drawPatientPositioning(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // CT scanner (simplified side view)
+            ctx.fillStyle = '#e8e8e8';
+            ctx.fillRect(cx + 50, cy - 150, 150, 300);
+            
+            // Bore
+            ctx.fillStyle = '#2a2a4a';
+            ctx.beginPath();
+            ctx.ellipse(cx + 125, cy, 70, 70, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#1a1a2a';
+            ctx.beginPath();
+            ctx.ellipse(cx + 125, cy, 50, 50, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Patient table
+            const tableX = cx - 200 + progress * 200;
+            ctx.fillStyle = '#3a3a5a';
+            ctx.fillRect(tableX, cy + 30, 250, 15);
+            
+            // Table base
+            ctx.fillRect(cx - 180, cy + 45, 80, 100);
+
+            // Patient (lying down)
+            const patientX = tableX + 50;
+            
+            // Body
+            ctx.fillStyle = '#ffdbac';
+            ctx.beginPath();
+            ctx.ellipse(patientX + 80, cy + 10, 60, 20, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Head
+            ctx.beginPath();
+            ctx.arc(patientX + 150, cy + 5, 18, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Legs
+            ctx.beginPath();
+            ctx.ellipse(patientX, cy + 15, 40, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Hospital gown
+            ctx.fillStyle = '#87ceeb';
+            ctx.beginPath();
+            ctx.ellipse(patientX + 80, cy + 12, 55, 18, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ECG leads
+            if (progress > 0.3) {
+                ctx.strokeStyle = '#ff4444';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(patientX + 70, cy);
+                ctx.quadraticCurveTo(patientX + 60, cy - 30, patientX + 30, cy - 50);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ff4444';
+                ctx.beginPath();
+                ctx.arc(patientX + 70, cy, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // IV contrast line
+            if (progress > 0.5) {
+                ctx.strokeStyle = '#4444ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(patientX + 120, cy + 5);
+                ctx.quadraticCurveTo(patientX + 140, cy - 40, patientX + 100, cy - 80);
+                ctx.stroke();
+                
+                // Contrast injector
+                ctx.fillStyle = '#4444ff';
+                ctx.fillRect(patientX + 90, cy - 100, 30, 20);
+                ctx.fillStyle = '#fff';
+                ctx.font = '8px sans-serif';
+                ctx.fillText('Contrast', patientX + 92, cy - 87);
+            }
+
+            // ECG monitor
+            if (progress > 0.4) {
+                ctx.fillStyle = '#1a1a2a';
+                ctx.fillRect(cx - 250, cy - 100, 80, 60);
+                
+                // ECG trace
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                const ecgTime = Date.now() / 200;
+                for (let i = 0; i < 70; i++) {
+                    const x = cx - 245 + i;
+                    const phase = (i + ecgTime) % 30;
+                    let y = cy - 70;
+                    if (phase > 10 && phase < 12) y -= 20;
+                    else if (phase > 12 && phase < 14) y += 10;
+                    else if (phase > 14 && phase < 16) y -= 5;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                
+                ctx.fillStyle = '#00ff88';
+                ctx.font = '12px monospace';
+                ctx.fillText('HR: 68', cx - 240, cy - 50);
+            }
+
+            // Status
+            ctx.fillStyle = '#00d4ff';
+            ctx.font = '14px sans-serif';
+            ctx.fillText(progress < 0.8 ? 'Positioning...' : '✓ Ready for Scan', cx - 50, cy + 180);
+        }
+
+        function drawCardiacCT(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Scanner cross-section view
+            ctx.fillStyle = '#2a2a4a';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 180, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rotating gantry
+            const rotation = Date.now() / 300 * (0.5 + progress * 0.5);
+            
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(rotation);
+            
+            // X-ray source
+            ctx.fillStyle = '#ff6600';
+            ctx.beginPath();
+            ctx.arc(0, -160, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // X-ray beam
+            ctx.fillStyle = `rgba(255, 200, 0, ${0.1 + progress * 0.2})`;
+            ctx.beginPath();
+            ctx.moveTo(0, -148);
+            ctx.lineTo(-80, 140);
+            ctx.lineTo(80, 140);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Detector arc
+            ctx.strokeStyle = '#4a9aea';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.arc(0, 0, 160, Math.PI * 0.25, Math.PI * 0.75);
+            ctx.stroke();
+            
+            ctx.restore();
+
+            // Patient cross-section (chest)
+            ctx.fillStyle = '#ffdbac';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 70, 50, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Heart
+            ctx.fillStyle = '#cc4444';
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - 10);
+            ctx.bezierCurveTo(cx - 20, cy - 30, cx - 35, cy - 10, cx - 35, cy + 5);
+            ctx.bezierCurveTo(cx - 35, cy + 25, cx, cy + 35, cx, cy + 35);
+            ctx.bezierCurveTo(cx, cy + 35, cx + 35, cy + 25, cx + 35, cy + 5);
+            ctx.bezierCurveTo(cx + 35, cy - 10, cx + 20, cy - 30, cx, cy - 10);
+            ctx.fill();
+
+            // Coronary arteries
+            if (progress > 0.3) {
+                ctx.strokeStyle = '#ff6666';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(cx - 10, cy - 5);
+                ctx.quadraticCurveTo(cx - 30, cy, cx - 25, cy + 20);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(cx + 10, cy - 5);
+                ctx.quadraticCurveTo(cx + 30, cy, cx + 25, cy + 20);
+                ctx.stroke();
+            }
+
+            // Contrast enhancement
+            if (progress > 0.4) {
+                const contrastIntensity = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+                ctx.fillStyle = `rgba(255, 255, 100, ${contrastIntensity * (progress - 0.4)})`;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - 8);
+                ctx.bezierCurveTo(cx - 18, cy - 28, cx - 32, cy - 8, cx - 32, cy + 5);
+                ctx.bezierCurveTo(cx - 32, cy + 23, cx, cy + 32, cx, cy + 32);
+                ctx.bezierCurveTo(cx, cy + 32, cx + 32, cy + 23, cx + 32, cy + 5);
+                ctx.bezierCurveTo(cx + 32, cy - 8, cx + 18, cy - 28, cx, cy - 8);
+                ctx.fill();
+            }
+
+            // Lungs
+            ctx.fillStyle = 'rgba(100, 100, 150, 0.5)';
+            ctx.beginPath();
+            ctx.ellipse(cx - 45, cy - 5, 20, 35, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx + 45, cy - 5, 20, 35, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Spine
+            ctx.fillStyle = '#ddd';
+            ctx.beginPath();
+            ctx.arc(cx, cy + 40, 12, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Acquisition info
+            ctx.fillStyle = '#00d4ff';
+            ctx.font = '12px monospace';
+            ctx.fillText(`Rotation: ${(rotation * 180 / Math.PI % 360).toFixed(0)}°`, cx + 150, cy - 80);
+            ctx.fillText(`Slice: ${Math.floor(progress * 256)}`, cx + 150, cy - 60);
+            ctx.fillText('Mode: Cardiac Gated', cx + 150, cy - 40);
+        }
+
+        function drawTumorDetection(progress) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // CT image display (axial slice)
+            ctx.fillStyle = '#000';
+            ctx.fillRect(cx - 200, cy - 180, 300, 300);
+            
+            // Patient anatomy
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.ellipse(cx - 50, cy - 30, 100, 80, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Heart
+            ctx.fillStyle = '#555';
+            ctx.beginPath();
+            ctx.moveTo(cx - 50, cy - 50);
+            ctx.bezierCurveTo(cx - 80, cy - 80, cx - 100, cy - 50, cx - 100, cy - 30);
+            ctx.bezierCurveTo(cx - 100, cy, cx - 50, cy + 20, cx - 50, cy + 20);
+            ctx.bezierCurveTo(cx - 50, cy + 20, cx, cy, cx, cy - 30);
+            ctx.bezierCurveTo(cx, cy - 50, cx - 20, cy - 80, cx - 50, cy - 50);
+            ctx.fill();
+
+            // Contrast-enhanced vessels
+            ctx.fillStyle = '#888';
+            ctx.beginPath();
+            ctx.ellipse(cx - 70, cy - 40, 8, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx - 30, cy - 40, 6, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Lungs
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.ellipse(cx - 120, cy - 30, 30, 50, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx + 20, cy - 30, 30, 50, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // TUMOR (appearing with detection)
+            if (progress > 0.2) {
+                const tumorOpacity = Math.min(1, (progress - 0.2) * 2);
+                
+                // Tumor mass
+                ctx.fillStyle = `rgba(200, 100, 100, ${tumorOpacity})`;
+                ctx.beginPath();
+                ctx.ellipse(cx + 10, cy - 50, 15, 12, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Detection highlight
+                if (progress > 0.4) {
+                    const pulseIntensity = Math.sin(Date.now() / 200) * 0.5 + 0.5;
+                    ctx.strokeStyle = `rgba(255, 50, 50, ${pulseIntensity})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(cx + 10, cy - 50, 25 + pulseIntensity * 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            // Analysis panel (right side)
+            ctx.fillStyle = '#1a1a2a';
+            ctx.fillRect(cx + 120, cy - 180, 180, 300);
+            
+            // Spectral analysis
+            if (progress > 0.3) {
+                ctx.fillStyle = '#00d4ff';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('SPECTRAL ANALYSIS', cx + 130, cy - 150);
+                
+                // Energy bins
+                const energies = ['40 keV', '60 keV', '80 keV', '120 keV'];
+                energies.forEach((e, i) => {
+                    ctx.fillStyle = '#666';
+                    ctx.fillRect(cx + 130, cy - 120 + i * 30, 100, 15);
+                    
+                    const barWidth = (0.3 + Math.random() * 0.5) * 100 * Math.min(1, (progress - 0.3) * 3);
+                    ctx.fillStyle = `hsl(${180 + i * 30}, 70%, 50%)`;
+                    ctx.fillRect(cx + 130, cy - 120 + i * 30, barWidth, 15);
+                    
+                    ctx.fillStyle = '#aaa';
+                    ctx.font = '10px sans-serif';
+                    ctx.fillText(e, cx + 240, cy - 108 + i * 30);
+                });
+            }
+
+            // Detection results
+            if (progress > 0.6) {
+                ctx.fillStyle = '#ff4444';
+                ctx.font = '14px sans-serif';
+                ctx.fillText('⚠ LESION DETECTED', cx + 130, cy + 20);
+                
+                ctx.fillStyle = '#aaa';
+                ctx.font = '11px sans-serif';
+                ctx.fillText(`Size: ${(12 + progress * 3).toFixed(1)} mm`, cx + 130, cy + 45);
+                ctx.fillText(`Location: RUL`, cx + 130, cy + 65);
+                ctx.fillText(`HU: ${Math.floor(45 + progress * 20)}`, cx + 130, cy + 85);
+            }
+
+            // Material decomposition
+            if (progress > 0.7) {
+                ctx.fillStyle = '#00ff88';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('MATERIAL DECOMP:', cx + 130, cy + 110);
+                
+                ctx.fillStyle = '#aaa';
+                ctx.font = '10px sans-serif';
+                ctx.fillText('• Soft tissue: 78%', cx + 135, cy + 130);
+                ctx.fillText('• Iodine uptake: 18%', cx + 135, cy + 145);
+                ctx.fillText('• Calcium: 4%', cx + 135, cy + 160);
+            }
+
+            // K-edge indicator
+            if (progress > 0.8) {
+                ctx.fillStyle = '#ffaa00';
+                ctx.font = '11px sans-serif';
+                ctx.fillText('K-edge: Iodine (33 keV) ✓', cx + 130, cy - 160 + 350);
+            }
+
+            // Window/Level info
+            ctx.fillStyle = '#666';
+            ctx.font = '10px monospace';
+            ctx.fillText('W:400 L:40', cx - 190, cy + 100);
+        }
+
+        // Main drawing function
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            switch(currentStage) {
+                case 0: drawCrystalGrowth(animationProgress); break;
+                case 1: drawWaferProcessing(animationProgress); break;
+                case 2: drawPixelPatterning(animationProgress); break;
+                case 3: drawModuleAssembly(animationProgress); break;
+                case 4: drawMultiModuleIntegration(animationProgress); break;
+                case 5: drawGantryInstallation(animationProgress); break;
+                case 6: drawPCCTAssembly(animationProgress); break;
+                case 7: drawPatientPositioning(animationProgress); break;
+                case 8: drawCardiacCT(animationProgress); break;
+                case 9: drawTumorDetection(animationProgress); break;
+            }
+
+            animationId = requestAnimationFrame(draw);
+        }
+
+        // Animation control
+        function updateProgress() {
+            if (isPlaying) {
+                animationProgress += 0.003 * animationSpeed;
+                
+                if (animationProgress >= 1) {
+                    if (currentStage < stages.length - 1) {
+                        currentStage++;
+                        animationProgress = 0;
+                        updateUI();
+                    } else {
+                        isPlaying = false;
+                        document.getElementById('playBtn').textContent = '▶ Play All';
+                    }
+                }
+                
+                document.getElementById('progressFill').style.width = 
+                    ((currentStage + animationProgress) / stages.length * 100) + '%';
+            }
+            
+            setTimeout(updateProgress, 16);
+        }
+
+        function updateUI() {
+            document.getElementById('stageTitle').textContent = 
+                `Stage ${currentStage + 1}: ${stages[currentStage].name}`;
+            document.getElementById('infoText').textContent = stages[currentStage].info;
+            updateStageIndicators();
+        }
+
+        function goToStage(index) {
+            currentStage = index;
+            animationProgress = 0;
+            updateUI();
+            document.getElementById('progressFill').style.width = 
+                (currentStage / stages.length * 100) + '%';
+        }
+
+        // Event listeners
+        document.getElementById('playBtn').addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            document.getElementById('playBtn').textContent = isPlaying ? '⏸ Pause' : '▶ Play All';
+            if (isPlaying && currentStage === stages.length - 1 && animationProgress >= 0.99) {
+                goToStage(0);
+            }
+        });
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentStage > 0) {
+                goToStage(currentStage - 1);
+            }
+        });
+
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (currentStage < stages.length - 1) {
+                goToStage(currentStage + 1);
+            }
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            animationSpeed = parseFloat(e.target.value);
+            document.getElementById('speedValue').textContent = animationSpeed.toFixed(1) + 'x';
+        });
+
+        // Initialize
+        updateUI();
+        draw();
+        updateProgress();
+    </script>
+</body>
+</html>
