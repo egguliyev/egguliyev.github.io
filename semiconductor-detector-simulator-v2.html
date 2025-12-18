@@ -1,0 +1,2454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semiconductor Radiation Detector Simulator | CdTe, CdZnTe, Si, HgI₂, TlBr, GaAs</title>
+    <meta name="description" content="Interactive simulation tool for semiconductor radiation detectors. Visualize weighting potential, charge transport, pulse height spectrum, and noise analysis for CdTe, CdZnTe, Silicon, HgI2, TlBr, and GaAs detectors.">
+    <meta name="keywords" content="CdTe, CdZnTe, Silicon, HgI2, TlBr, GaAs, radiation detector, photon counting, weighting potential, Shockley-Ramo, ENC, noise">
+    <meta name="author" content="Semiconductor Detector Simulation Tool">
+    
+    <!-- Plotly.js for interactive charts -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #3b82f6;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --purple: #8b5cf6;
+            --pink: #ec4899;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #475569;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-dark) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            max-width: 1900px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .logo-text {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .logo-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .header-links {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .header-links a, .header-links button {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .header-links a:hover, .header-links button:hover {
+            color: var(--text-primary);
+            background: var(--bg-input);
+            border-color: var(--border);
+        }
+
+        /* Main Layout */
+        .main-container {
+            max-width: 1900px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            height: fit-content;
+            position: sticky;
+            top: 80px;
+            box-shadow: var(--shadow);
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .panel-section {
+            margin-bottom: 1.25rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.6rem;
+        }
+
+        /* Material Selector - 2x3 grid for 6 materials */
+        .material-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.4rem;
+        }
+
+        .material-btn {
+            padding: 0.5rem 0.25rem;
+            border: 2px solid var(--border);
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .material-btn:hover {
+            border-color: var(--primary-light);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .material-btn.active {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.2);
+        }
+
+        .material-btn .symbol {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .material-btn .name {
+            font-size: 0.55rem;
+            color: var(--text-secondary);
+            margin-top: 0.15rem;
+            line-height: 1.2;
+        }
+
+        /* Input Groups */
+        .input-group {
+            margin-bottom: 0.875rem;
+        }
+
+        .input-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .input-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.4rem;
+        }
+
+        .input-label span {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .input-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--primary-light);
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 5px;
+            border-radius: 3px;
+            background: var(--bg-input);
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: 2px solid var(--bg-card);
+            box-shadow: var(--shadow);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: 2px solid var(--bg-card);
+        }
+
+        .input-range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        /* Number Input */
+        input[type="number"] {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary);
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--secondary) 0%, #059669 100%);
+            color: white;
+        }
+
+        /* Results Area */
+        .results-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Tabs */
+        .tabs-container {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 1rem;
+            box-shadow: var(--shadow);
+        }
+
+        .tabs-header {
+            display: flex;
+            gap: 0.25rem;
+            background: var(--bg-input);
+            padding: 0.25rem;
+            border-radius: var(--radius-sm);
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 0.6rem 0.75rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Properties Card */
+        .properties-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+        }
+
+        .properties-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .properties-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .material-badge {
+            padding: 0.3rem 0.6rem;
+            background: rgba(37, 99, 235, 0.2);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--primary-light);
+        }
+
+        .properties-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .property-item {
+            background: var(--bg-input);
+            padding: 0.75rem;
+            border-radius: var(--radius-sm);
+        }
+
+        .property-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-bottom: 0.2rem;
+        }
+
+        .property-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .property-unit {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 1400px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+        }
+
+        .chart-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            gap: 0.5rem;
+        }
+
+        .chart-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .chart-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        .chart-container {
+            height: 280px;
+        }
+
+        .chart-container.tall {
+            height: 350px;
+        }
+
+        /* Key Results */
+        .key-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .result-item {
+            text-align: center;
+            padding: 0.5rem;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+        }
+
+        .result-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+
+        .result-label {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+        }
+
+        /* Export buttons */
+        .export-btn {
+            padding: 0.3rem 0.6rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .export-btn:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 0.6rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-table th {
+            background: var(--bg-input);
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .comparison-table td {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .comparison-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .highlight { color: var(--secondary); }
+        .warning { color: var(--accent); }
+        .danger { color: var(--danger); }
+
+        /* Noise Analysis Panel */
+        .noise-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .noise-item {
+            background: var(--bg-input);
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+        }
+
+        .noise-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .noise-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-light);
+        }
+
+        .noise-unit {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .noise-bar {
+            height: 6px;
+            background: var(--bg-card);
+            border-radius: 3px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+
+        .noise-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .footer-content {
+            max-width: 1900px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .footer-section h4 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .footer-section p, .footer-section li {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+
+        .equation {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-input);
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            margin: 0.4rem 0;
+            overflow-x: auto;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .main-container {
+                padding: 1rem;
+            }
+            
+            .control-panel {
+                position: static;
+                max-height: none;
+            }
+            
+            .material-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .properties-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">⚛</div>
+                <div>
+                    <div class="logo-text">Semiconductor Detector Simulator</div>
+                    <div class="logo-subtitle">CdTe • CdZnTe • Si • HgI₂ • TlBr • GaAs | Interactive Physics Tool v2.0</div>
+                </div>
+            </div>
+            <div class="header-links">
+                <button onclick="exportAllDataCSV()">📥 Export All CSV</button>
+                <button onclick="showHelpModal()">❓ Help</button>
+                <a href="#theory">📚 Theory</a>
+                <a href="https://github.com" target="_blank">⭐ GitHub</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Control Panel -->
+        <aside class="control-panel">
+            <div class="panel-title">
+                <span>⚙</span> Simulation Parameters
+            </div>
+
+            <!-- Material Selection -->
+            <div class="panel-section">
+                <div class="section-label">Detector Material</div>
+                <div class="material-grid">
+                    <button class="material-btn active" data-material="CdZnTe" onclick="selectMaterial('CdZnTe')">
+                        <div class="symbol">CdZnTe</div>
+                        <div class="name">Cd Zn Telluride</div>
+                    </button>
+                    <button class="material-btn" data-material="CdTe" onclick="selectMaterial('CdTe')">
+                        <div class="symbol">CdTe</div>
+                        <div class="name">Cd Telluride</div>
+                    </button>
+                    <button class="material-btn" data-material="Si" onclick="selectMaterial('Si')">
+                        <div class="symbol">Si</div>
+                        <div class="name">Silicon</div>
+                    </button>
+                    <button class="material-btn" data-material="HgI2" onclick="selectMaterial('HgI2')">
+                        <div class="symbol">HgI₂</div>
+                        <div class="name">Mercury Iodide</div>
+                    </button>
+                    <button class="material-btn" data-material="TlBr" onclick="selectMaterial('TlBr')">
+                        <div class="symbol">TlBr</div>
+                        <div class="name">Thallium Bromide</div>
+                    </button>
+                    <button class="material-btn" data-material="GaAs" onclick="selectMaterial('GaAs')">
+                        <div class="symbol">GaAs</div>
+                        <div class="name">Gallium Arsenide</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Photon Energy -->
+            <div class="panel-section">
+                <div class="section-label">X-Ray / Gamma Energy</div>
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Photon Energy</span>
+                        <span class="input-value" id="energyValue">60 keV</span>
+                    </div>
+                    <input type="range" id="energySlider" min="5" max="500" value="60" step="1" oninput="updateParameter('energy')">
+                    <div class="input-range-labels">
+                        <span>5 keV</span>
+                        <span>500 keV</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Geometry -->
+            <div class="panel-section">
+                <div class="section-label">Detector Geometry</div>
+                
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Pixel Size (w)</span>
+                        <span class="input-value" id="pixelSizeValue">0.33 mm</span>
+                    </div>
+                    <input type="range" id="pixelSizeSlider" min="0.05" max="5" value="0.33" step="0.01" oninput="updateParameter('pixelSize')">
+                    <div class="input-range-labels">
+                        <span>0.05 mm</span>
+                        <span>5 mm</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Pixel Gap</span>
+                        <span class="input-value" id="pixelGapValue">0.02 mm</span>
+                    </div>
+                    <input type="range" id="pixelGapSlider" min="0" max="0.2" value="0.02" step="0.005" oninput="updateParameter('pixelGap')">
+                    <div class="input-range-labels">
+                        <span>0 mm</span>
+                        <span>0.2 mm</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Thickness (L)</span>
+                        <span class="input-value" id="thicknessValue">2.0 mm</span>
+                    </div>
+                    <input type="range" id="thicknessSlider" min="0.1" max="20" value="2" step="0.1" oninput="updateParameter('thickness')">
+                    <div class="input-range-labels">
+                        <span>0.1 mm</span>
+                        <span>20 mm</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bias Voltage -->
+            <div class="panel-section">
+                <div class="section-label">Operating Conditions</div>
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Bias Voltage</span>
+                        <span class="input-value" id="biasValue">1000 V</span>
+                    </div>
+                    <input type="range" id="biasSlider" min="10" max="5000" value="1000" step="10" oninput="updateParameter('bias')">
+                    <div class="input-range-labels">
+                        <span>10 V</span>
+                        <span>5000 V</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Temperature</span>
+                        <span class="input-value" id="tempValue">300 K</span>
+                    </div>
+                    <input type="range" id="tempSlider" min="200" max="400" value="300" step="5" oninput="updateParameter('temperature')">
+                    <div class="input-range-labels">
+                        <span>200 K</span>
+                        <span>400 K</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Electronics -->
+            <div class="panel-section">
+                <div class="section-label">Front-End Electronics</div>
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Shaping Time</span>
+                        <span class="input-value" id="shapingValue">1.0 µs</span>
+                    </div>
+                    <input type="range" id="shapingSlider" min="0.01" max="10" value="1" step="0.01" oninput="updateParameter('shaping')">
+                    <div class="input-range-labels">
+                        <span>10 ns</span>
+                        <span>10 µs</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Input Capacitance (C<sub>in</sub>)</span>
+                        <span class="input-value" id="capacitanceValue">5 pF</span>
+                    </div>
+                    <input type="range" id="capacitanceSlider" min="0.1" max="50" value="5" step="0.1" oninput="updateParameter('capacitance')">
+                    <div class="input-range-labels">
+                        <span>0.1 pF</span>
+                        <span>50 pF</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-label">
+                        <span>Leakage Current</span>
+                        <span class="input-value" id="leakageValue">1 nA</span>
+                    </div>
+                    <input type="range" id="leakageSlider" min="0.01" max="100" value="1" step="0.01" oninput="updateParameter('leakage')">
+                    <div class="input-range-labels">
+                        <span>0.01 nA</span>
+                        <span>100 nA</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="panel-section">
+                <button class="btn btn-primary" onclick="runSimulation()">
+                    <span>▶</span> Run Simulation
+                </button>
+                <button class="btn btn-secondary" onclick="resetParameters()" style="margin-top: 0.5rem;">
+                    <span>↺</span> Reset Defaults
+                </button>
+                <button class="btn btn-success" onclick="exportAllDataCSV()" style="margin-top: 0.5rem;">
+                    <span>📥</span> Export All Data
+                </button>
+            </div>
+        </aside>
+
+        <!-- Results Area -->
+        <div class="results-area">
+            <!-- Material Properties Card -->
+            <div class="properties-card">
+                <div class="properties-header">
+                    <div class="properties-title">Material & Detector Properties</div>
+                    <span class="material-badge" id="materialBadge">CdZnTe</span>
+                </div>
+                <div class="properties-grid" id="propertiesGrid">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Tabbed Interface -->
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <button class="tab-btn active" onclick="switchTab('physics')">📊 Physics</button>
+                    <button class="tab-btn" onclick="switchTab('spectrum')">📈 Pulse Height</button>
+                    <button class="tab-btn" onclick="switchTab('noise')">🔊 Noise/ENC</button>
+                    <button class="tab-btn" onclick="switchTab('compare')">⚖️ Compare</button>
+                </div>
+
+                <!-- Physics Tab -->
+                <div class="tab-content active" id="tab-physics">
+                    <div class="charts-grid">
+                        <!-- Absorption Profile -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">X-Ray Absorption Profile</div>
+                                    <div class="chart-subtitle">Probability density of photon interaction vs depth</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartCSV('absorption')">CSV</button>
+                                    <button class="export-btn" onclick="exportChartPNG('absorptionChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="absorptionChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="attenuationLength">--</div>
+                                    <div class="result-label">Attenuation Length</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="absorptionEff">--</div>
+                                    <div class="result-label">Absorption Efficiency</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="meanDepth">--</div>
+                                    <div class="result-label">Mean Depth</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weighting Potential -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Weighting Potential (Shockley-Ramo)</div>
+                                    <div class="chart-subtitle">Signal induction profile</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartCSV('weighting')">CSV</button>
+                                    <button class="export-btn" onclick="exportChartPNG('weightingChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="weightingChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="wlRatio">--</div>
+                                    <div class="result-label">w/L Ratio</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="smallPixelEffect">--</div>
+                                    <div class="result-label">Pixel Effect</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="holeSupression">--</div>
+                                    <div class="result-label">Hole Contrib.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CCE -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Charge Collection Efficiency</div>
+                                    <div class="chart-subtitle">Hecht equation - CCE vs interaction depth</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartCSV('cce')">CSV</button>
+                                    <button class="export-btn" onclick="exportChartPNG('cceChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="cceChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="avgCCE">--</div>
+                                    <div class="result-label">Average CCE</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="electronDrift">--</div>
+                                    <div class="result-label">λₑ</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="holeDrift">--</div>
+                                    <div class="result-label">λₕ</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Signal Pulse -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Induced Current Pulse</div>
+                                    <div class="chart-subtitle">Time-resolved signal from carrier drift</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartCSV('signal')">CSV</button>
+                                    <button class="export-btn" onclick="exportChartPNG('signalChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="signalChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="electronTime">--</div>
+                                    <div class="result-label">tₑ (drift)</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="holeTime">--</div>
+                                    <div class="result-label">tₕ (drift)</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="signalCharge">--</div>
+                                    <div class="result-label">Q @ energy</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charge Cloud -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Charge Cloud Expansion</div>
+                                    <div class="chart-subtitle">Diffusion during drift</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartCSV('cloud')">CSV</button>
+                                    <button class="export-btn" onclick="exportChartPNG('cloudChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="cloudChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="finalCloudSize">--</div>
+                                    <div class="result-label">Final σ</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="chargeSharing">--</div>
+                                    <div class="result-label">Sharing Risk</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Electric Field -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Electric Field Profile</div>
+                                    <div class="chart-subtitle">Field distribution in detector</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartPNG('fieldChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="fieldChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="avgField">--</div>
+                                    <div class="result-label">Avg Field</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="depletionStatus">--</div>
+                                    <div class="result-label">Depletion</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pulse Height Spectrum Tab -->
+                <div class="tab-content" id="tab-spectrum">
+                    <div class="charts-grid">
+                        <div class="chart-card full-width">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Pulse Height Spectrum Simulation</div>
+                                    <div class="chart-subtitle">Simulated energy spectrum including charge trapping and noise effects</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartCSV('spectrum')">CSV</button>
+                                    <button class="export-btn" onclick="exportChartPNG('spectrumChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container tall" id="spectrumChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="peakPosition">--</div>
+                                    <div class="result-label">Peak Position</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="fwhmEnergy">--</div>
+                                    <div class="result-label">FWHM</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="energyResolution">--</div>
+                                    <div class="result-label">Resolution</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="peakToCompton">--</div>
+                                    <div class="result-label">Peak/Compton</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="tailFraction">--</div>
+                                    <div class="result-label">Low-E Tail</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">CCE Distribution</div>
+                                    <div class="chart-subtitle">Charge collection efficiency histogram</div>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="cceHistChart"></div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Energy Resolution vs Energy</div>
+                                    <div class="chart-subtitle">FWHM as function of photon energy</div>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="resolutionChart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Noise/ENC Tab -->
+                <div class="tab-content" id="tab-noise">
+                    <div class="chart-card" style="margin-bottom: 1.25rem;">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Equivalent Noise Charge (ENC) Analysis</div>
+                                <div class="chart-subtitle">Breakdown of noise contributions to total ENC</div>
+                            </div>
+                        </div>
+                        <div class="noise-grid" id="noiseGrid">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">ENC vs Shaping Time</div>
+                                    <div class="chart-subtitle">Optimization of shaping time</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartCSV('encVsShaping')">CSV</button>
+                                    <button class="export-btn" onclick="exportChartPNG('encShapingChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="encShapingChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="optimalShaping">--</div>
+                                    <div class="result-label">Optimal τ</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="minENC">--</div>
+                                    <div class="result-label">Min ENC</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">ENC vs Input Capacitance</div>
+                                    <div class="chart-subtitle">Impact of detector + stray capacitance</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartCSV('encVsCap')">CSV</button>
+                                    <button class="export-btn" onclick="exportChartPNG('encCapChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="encCapChart"></div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Signal-to-Noise Ratio</div>
+                                    <div class="chart-subtitle">SNR vs photon energy</div>
+                                </div>
+                                <div class="export-buttons">
+                                    <button class="export-btn" onclick="exportChartPNG('snrChart')">PNG</button>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="snrChart"></div>
+                            <div class="key-results">
+                                <div class="result-item">
+                                    <div class="result-value" id="snrAtEnergy">--</div>
+                                    <div class="result-label">SNR @ energy</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-value" id="minDetectable">--</div>
+                                    <div class="result-label">Min Detectable</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Noise Contributions Breakdown</div>
+                                    <div class="chart-subtitle">Series, parallel, and 1/f components</div>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="noiseBreakdownChart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison Tab -->
+                <div class="tab-content" id="tab-compare">
+                    <div class="chart-card" style="margin-bottom: 1.25rem;">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">Material Comparison Table</div>
+                                <div class="chart-subtitle">All 6 materials at current settings</div>
+                            </div>
+                            <button class="export-btn" onclick="exportComparisonCSV()">📥 Export CSV</button>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="comparison-table" id="comparisonTable">
+                                <!-- Populated by JavaScript -->
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Absorption Efficiency Comparison</div>
+                                    <div class="chart-subtitle">All materials vs photon energy</div>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="absCompareChart"></div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">CCE Comparison</div>
+                                    <div class="chart-subtitle">All materials at current bias</div>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="cceCompareChart"></div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Weighting Potential Comparison</div>
+                                    <div class="chart-subtitle">Small pixel effect for all materials</div>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="wpCompareChart"></div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div>
+                                    <div class="chart-title">Energy Resolution Comparison</div>
+                                    <div class="chart-subtitle">Expected FWHM vs energy</div>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="resCompareChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="theory">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>📚 Physics Models</h4>
+                <p><strong>Shockley-Ramo:</strong> Induced charge from carrier motion</p>
+                <div class="equation">Q = q × [φ_w(final) - φ_w(initial)]</div>
+                <p><strong>Hecht Equation:</strong> Charge collection with trapping</p>
+                <div class="equation">CCE = (λₑ/L)(1-e^(-(L-z)/λₑ)) + (λₕ/L)(1-e^(-z/λₕ))</div>
+                <p><strong>Weighting Potential:</strong> Small pixel approximation</p>
+                <div class="equation">φ_w = 1 - (L-z)/√[(L-z)² + (w/2)²]</div>
+            </div>
+            
+            <div class="footer-section">
+                <h4>🔊 Noise Analysis</h4>
+                <p><strong>Series (Thermal):</strong></p>
+                <div class="equation">ENC²_s = (4kT/gₘ)(C²/τ) × A₁</div>
+                <p><strong>Parallel (Shot):</strong></p>
+                <div class="equation">ENC²_p = (eI_leak × τ/2) × A₂</div>
+                <p><strong>1/f Noise:</strong></p>
+                <div class="equation">ENC²_f = A_f × C² × A₃</div>
+            </div>
+            
+            <div class="footer-section">
+                <h4>📖 References</h4>
+                <ul>
+                    <li>G.F. Knoll, "Radiation Detection and Measurement," 4th Ed.</li>
+                    <li>T. Schlesinger & R. James, "Semiconductors for Room Temperature Nuclear Detector Applications"</li>
+                    <li>H. Spieler, "Semiconductor Detector Systems"</li>
+                    <li>NIST XCOM Database for attenuation coefficients</li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h4>⚠️ Disclaimer</h4>
+                <p>Educational tool using simplified analytical models. For precision work, use Monte Carlo (GEANT4, MCNP) and finite element (COMSOL, Elmer) simulations.</p>
+                <p style="margin-top: 0.5rem;"><strong>Version:</strong> 2.0.0 | <strong>License:</strong> MIT</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Help Modal -->
+    <div class="modal" id="helpModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">❓ Help & User Guide</div>
+                <button class="modal-close" onclick="closeHelpModal()">×</button>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                <h4 style="color: var(--text-primary); margin: 1rem 0 0.5rem;">Getting Started</h4>
+                <ol style="margin-left: 1.5rem; line-height: 1.8;">
+                    <li>Select a detector material (CdZnTe, CdTe, Si, HgI₂, TlBr, or GaAs)</li>
+                    <li>Adjust photon energy, pixel size, thickness, and bias voltage</li>
+                    <li>Configure electronics parameters (shaping time, capacitance, leakage)</li>
+                    <li>Click "Run Simulation" or parameters auto-update</li>
+                    <li>Explore tabs: Physics, Pulse Height, Noise/ENC, Compare</li>
+                </ol>
+                
+                <h4 style="color: var(--text-primary); margin: 1rem 0 0.5rem;">Exporting Data</h4>
+                <ul style="margin-left: 1.5rem; line-height: 1.8;">
+                    <li><strong>CSV:</strong> Click CSV button on any chart for raw data</li>
+                    <li><strong>PNG:</strong> Click PNG button to save chart image</li>
+                    <li><strong>Export All:</strong> Downloads all simulation data as CSV</li>
+                </ul>
+                
+                <h4 style="color: var(--text-primary); margin: 1rem 0 0.5rem;">Key Parameters</h4>
+                <ul style="margin-left: 1.5rem; line-height: 1.8;">
+                    <li><strong>w/L Ratio:</strong> Pixel width / thickness. Small values (<0.5) create "small pixel effect"</li>
+                    <li><strong>ENC:</strong> Equivalent Noise Charge - lower is better</li>
+                    <li><strong>CCE:</strong> Charge Collection Efficiency - higher is better</li>
+                    <li><strong>FWHM:</strong> Energy resolution - lower is better</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =================================================================
+        // MATERIAL DATABASE (Extended with HgI2, TlBr, GaAs)
+        // =================================================================
+        const MATERIALS = {
+            CdZnTe: {
+                name: 'Cadmium Zinc Telluride',
+                formula: 'Cd₀.₉Zn₀.₁Te',
+                Z_eff: 50,
+                density: 5.78,
+                bandgap: 1.57,
+                w_value: 4.64,
+                epsilon_r: 10.9,
+                mu_e: 1000,
+                mu_h: 80,
+                tau_e: 3e-6,
+                tau_h: 1e-6,
+                fano: 0.089,
+                resistivity: 1e10,
+                color: '#3b82f6'
+            },
+            CdTe: {
+                name: 'Cadmium Telluride',
+                formula: 'CdTe',
+                Z_eff: 50,
+                density: 5.85,
+                bandgap: 1.44,
+                w_value: 4.43,
+                epsilon_r: 10.2,
+                mu_e: 1100,
+                mu_h: 100,
+                tau_e: 2e-6,
+                tau_h: 0.8e-6,
+                fano: 0.089,
+                resistivity: 1e9,
+                color: '#10b981'
+            },
+            Si: {
+                name: 'Silicon',
+                formula: 'Si',
+                Z_eff: 14,
+                density: 2.33,
+                bandgap: 1.12,
+                w_value: 3.62,
+                epsilon_r: 11.7,
+                mu_e: 1450,
+                mu_h: 450,
+                tau_e: 1e-3,
+                tau_h: 1e-3,
+                fano: 0.115,
+                resistivity: 1e4,
+                color: '#f59e0b'
+            },
+            HgI2: {
+                name: 'Mercuric Iodide',
+                formula: 'HgI₂',
+                Z_eff: 62,
+                density: 6.36,
+                bandgap: 2.13,
+                w_value: 4.15,
+                epsilon_r: 8.8,
+                mu_e: 100,
+                mu_h: 4,
+                tau_e: 1e-6,
+                tau_h: 0.1e-6,
+                fano: 0.1,
+                resistivity: 1e13,
+                color: '#8b5cf6'
+            },
+            TlBr: {
+                name: 'Thallium Bromide',
+                formula: 'TlBr',
+                Z_eff: 59,
+                density: 7.56,
+                bandgap: 2.68,
+                w_value: 6.5,
+                epsilon_r: 29.8,
+                mu_e: 30,
+                mu_h: 4,
+                tau_e: 2e-6,
+                tau_h: 0.5e-6,
+                fano: 0.1,
+                resistivity: 1e12,
+                color: '#ec4899'
+            },
+            GaAs: {
+                name: 'Gallium Arsenide',
+                formula: 'GaAs',
+                Z_eff: 32,
+                density: 5.32,
+                bandgap: 1.42,
+                w_value: 4.2,
+                epsilon_r: 12.9,
+                mu_e: 8500,
+                mu_h: 400,
+                tau_e: 1e-8,
+                tau_h: 1e-8,
+                fano: 0.1,
+                resistivity: 1e8,
+                color: '#06b6d4'
+            }
+        };
+
+        // =================================================================
+        // SIMULATION STATE
+        // =================================================================
+        let state = {
+            material: 'CdZnTe',
+            energy: 60,
+            pixelSize: 0.33,
+            pixelGap: 0.02,
+            thickness: 2.0,
+            bias: 1000,
+            temperature: 300,
+            shaping: 1.0,
+            capacitance: 5,
+            leakage: 1
+        };
+
+        // Store computed data for export
+        let computedData = {};
+
+        // =================================================================
+        // PHYSICS CALCULATIONS
+        // =================================================================
+        
+        function getMassAttenuation(material, E_keV) {
+            const Z = MATERIALS[material].Z_eff;
+            const rho = MATERIALS[material].density;
+            
+            let mu_rho;
+            
+            if (material === 'Si') {
+                mu_rho = 0.15 * Math.pow(E_keV / 60, -2.7) + 0.02;
+            } else if (material === 'GaAs') {
+                if (E_keV < 11.1) { // Below Ga K-edge
+                    mu_rho = 20 * Math.pow(E_keV / 10, -2.8);
+                } else {
+                    mu_rho = 8 * Math.pow(E_keV / 30, -2.7);
+                }
+            } else if (material === 'HgI2') {
+                if (E_keV < 33.2) {
+                    mu_rho = 60 * Math.pow(E_keV / 20, -2.8);
+                } else if (E_keV < 83.1) { // Hg K-edge
+                    mu_rho = 25 * Math.pow(E_keV / 50, -2.7);
+                } else {
+                    mu_rho = 15 * Math.pow(E_keV / 100, -2.7);
+                }
+            } else if (material === 'TlBr') {
+                if (E_keV < 13.5) {
+                    mu_rho = 80 * Math.pow(E_keV / 10, -2.8);
+                } else if (E_keV < 85.5) { // Tl K-edge
+                    mu_rho = 30 * Math.pow(E_keV / 50, -2.7);
+                } else {
+                    mu_rho = 18 * Math.pow(E_keV / 100, -2.7);
+                }
+            } else { // CdTe, CdZnTe
+                if (E_keV < 27) {
+                    mu_rho = 40 * Math.pow(E_keV / 20, -2.8);
+                } else if (E_keV < 32) {
+                    mu_rho = 20 * Math.pow(E_keV / 30, -2.8);
+                } else {
+                    mu_rho = 12 * Math.pow(E_keV / 50, -2.8);
+                }
+            }
+            
+            return mu_rho * rho;
+        }
+
+        function getAttenuationLength(material, E_keV) {
+            const mu = getMassAttenuation(material, E_keV);
+            return 10 / mu;
+        }
+
+        function getAbsorptionEfficiency(material, E_keV, thickness_mm) {
+            const mu = getMassAttenuation(material, E_keV);
+            return 1 - Math.exp(-mu * thickness_mm / 10);
+        }
+
+        function getAbsorptionProfile(material, E_keV, thickness_mm, nPoints = 100) {
+            const mu = getMassAttenuation(material, E_keV);
+            const z = [], prob = [];
+            for (let i = 0; i < nPoints; i++) {
+                const z_mm = (i / (nPoints - 1)) * thickness_mm;
+                z.push(z_mm);
+                prob.push(mu * Math.exp(-mu * z_mm / 10) / 10);
+            }
+            computedData.absorption = { z, prob };
+            return { z, prob };
+        }
+
+        function getWeightingPotential(z_norm, w_L) {
+            const d = 1 - z_norm;
+            const a = w_L / 2;
+            if (d < 0.001) return 1.0;
+            return 1 - d / Math.sqrt(d * d + a * a);
+        }
+
+        function getWeightingPotentialProfile(pixelSize_mm, thickness_mm, nPoints = 100) {
+            const w_L = pixelSize_mm / thickness_mm;
+            const z_norm = [], phi_pixel = [], phi_planar = [];
+            for (let i = 0; i < nPoints; i++) {
+                const zn = i / (nPoints - 1);
+                z_norm.push(zn);
+                phi_pixel.push(getWeightingPotential(zn, w_L));
+                phi_planar.push(zn);
+            }
+            computedData.weighting = { z_norm, phi_pixel, phi_planar };
+            return { z_norm, phi_pixel, phi_planar };
+        }
+
+        function getCCE(z_norm, material, thickness_mm, bias_V) {
+            const mat = MATERIALS[material];
+            const L = thickness_mm / 10;
+            const E = bias_V / (thickness_mm / 10);
+            const lambda_e = mat.mu_e * mat.tau_e * E;
+            const lambda_h = mat.mu_h * mat.tau_h * E;
+            const z = z_norm * L;
+            
+            let cce_e = lambda_e > 0 ? (lambda_e / L) * (1 - Math.exp(-(L - z) / lambda_e)) : 0;
+            let cce_h = (lambda_h > 0 && z > 0) ? (lambda_h / L) * (1 - Math.exp(-z / lambda_h)) : 0;
+            
+            return {
+                total: Math.min(cce_e + cce_h, 1.0),
+                electron: Math.min(cce_e, 1.0),
+                hole: Math.min(cce_h, 1.0),
+                lambda_e: lambda_e * 10,
+                lambda_h: lambda_h * 10
+            };
+        }
+
+        function getCCEProfile(material, thickness_mm, bias_V, nPoints = 100) {
+            const z_norm = [], cce_total = [], cce_electron = [], cce_hole = [];
+            for (let i = 0; i < nPoints; i++) {
+                const zn = i / (nPoints - 1);
+                z_norm.push(zn);
+                const cce = getCCE(zn, material, thickness_mm, bias_V);
+                cce_total.push(cce.total);
+                cce_electron.push(cce.electron);
+                cce_hole.push(cce.hole);
+            }
+            computedData.cce = { z_norm, cce_total, cce_electron, cce_hole };
+            return { z_norm, cce_total, cce_electron, cce_hole };
+        }
+
+        function getDriftTimes(material, thickness_mm, bias_V) {
+            const mat = MATERIALS[material];
+            const L = thickness_mm / 10;
+            const E = bias_V / L;
+            const v_e = mat.mu_e * E;
+            const v_h = mat.mu_h * E;
+            return {
+                electron_ns: (L / v_e) * 1e9,
+                hole_ns: (L / v_h) * 1e9,
+                v_e_mm_ns: v_e / 1e7,
+                v_h_mm_ns: v_h / 1e7
+            };
+        }
+
+        function getSignalPulse(z0_norm, material, pixelSize_mm, thickness_mm, bias_V, nPoints = 200) {
+            const mat = MATERIALS[material];
+            const L = thickness_mm / 10;
+            const E = bias_V / L;
+            const w_L = pixelSize_mm / thickness_mm;
+            const v_e = mat.mu_e * E;
+            const t_drift = (1 - z0_norm) * L / v_e;
+            const t = [], current = [];
+            
+            for (let i = 0; i < nPoints; i++) {
+                const ti = (i / (nPoints - 1)) * t_drift * 1.5;
+                t.push(ti * 1e9);
+                const z_norm = Math.min(z0_norm + (v_e * ti) / L, 1.0);
+                const dz = 0.001;
+                const phi1 = getWeightingPotential(z_norm, w_L);
+                const phi2 = getWeightingPotential(Math.min(z_norm + dz, 1), w_L);
+                let i_current = v_e * (phi2 - phi1) / dz / L;
+                if (z_norm >= 0.999) i_current = 0;
+                current.push(Math.max(i_current, 0));
+            }
+            
+            const maxCurrent = Math.max(...current);
+            const normalizedCurrent = current.map(c => maxCurrent > 0 ? c / maxCurrent : 0);
+            computedData.signal = { t, current: normalizedCurrent };
+            return { t, current: normalizedCurrent };
+        }
+
+        function getCloudExpansion(material, thickness_mm, bias_V, temp_K, nPoints = 100) {
+            const mat = MATERIALS[material];
+            const L = thickness_mm / 10;
+            const E = bias_V / L;
+            const v_e = mat.mu_e * E;
+            const t_max = L / v_e;
+            const kT_eV = 0.0259 * (temp_K / 300);
+            const D_e = mat.mu_e * kT_eV;
+            const D_h = mat.mu_h * kT_eV;
+            const sigma_0 = 5e-4;
+            const t = [], sigma_e = [], sigma_h = [];
+            
+            for (let i = 0; i < nPoints; i++) {
+                const ti = (i / (nPoints - 1)) * t_max;
+                t.push(ti * 1e9);
+                sigma_e.push(Math.sqrt(sigma_0 * sigma_0 + 2 * D_e * ti) * 1e4);
+                sigma_h.push(Math.sqrt(sigma_0 * sigma_0 + 2 * D_h * ti) * 1e4);
+            }
+            computedData.cloud = { t, sigma_e, sigma_h };
+            return { t, sigma_e, sigma_h };
+        }
+
+        function getSignalCharge(E_keV, material) {
+            const w = MATERIALS[material].w_value;
+            const n_pairs = (E_keV * 1000) / w;
+            return { n_pairs, charge_fC: n_pairs * 1.602e-19 * 1e15 };
+        }
+
+        // =================================================================
+        // NOISE CALCULATIONS
+        // =================================================================
+        
+        function calculateENC(material, capacitance_pF, shaping_us, leakage_nA, temp_K) {
+            const C = capacitance_pF * 1e-12;
+            const tau = shaping_us * 1e-6;
+            const I_leak = leakage_nA * 1e-9;
+            const T = temp_K;
+            const k = 1.38e-23;
+            const e = 1.602e-19;
+            
+            const gm = 10e-3;
+            const A1 = 1.0, A2 = 1.0, A3 = 1.0;
+            const Af = 1e-14;
+            
+            const ENC_series_sq = (4 * k * T / gm) * (C * C / tau) * A1;
+            const ENC_parallel_sq = (e * I_leak * tau / 2) * A2;
+            const ENC_1f_sq = Af * C * C * A3;
+            
+            const ENC_series = Math.sqrt(ENC_series_sq) / e;
+            const ENC_parallel = Math.sqrt(ENC_parallel_sq) / e;
+            const ENC_1f = Math.sqrt(ENC_1f_sq) / e;
+            const ENC_total = Math.sqrt(ENC_series * ENC_series + ENC_parallel * ENC_parallel + ENC_1f * ENC_1f);
+            
+            return {
+                total: ENC_total,
+                series: ENC_series,
+                parallel: ENC_parallel,
+                oneOverF: ENC_1f
+            };
+        }
+
+        function calculateFanoNoise(E_keV, material) {
+            const mat = MATERIALS[material];
+            const n_pairs = (E_keV * 1000) / mat.w_value;
+            return Math.sqrt(mat.fano * n_pairs);
+        }
+
+        function calculateEnergyResolution(E_keV, material, ENC_electrons) {
+            const mat = MATERIALS[material];
+            const fano_noise = calculateFanoNoise(E_keV, material);
+            const total_noise = Math.sqrt(fano_noise * fano_noise + ENC_electrons * ENC_electrons);
+            const fwhm_electrons = 2.355 * total_noise;
+            const fwhm_keV = fwhm_electrons * mat.w_value / 1000;
+            const resolution_percent = (fwhm_keV / E_keV) * 100;
+            return { fwhm_keV, resolution_percent, fano_noise };
+        }
+
+        function getOptimalShapingTime(capacitance_pF, leakage_nA) {
+            const C = capacitance_pF * 1e-12;
+            const I = leakage_nA * 1e-9;
+            const gm = 10e-3;
+            const k = 1.38e-23;
+            const T = 300;
+            const e = 1.602e-19;
+            const tau_opt = Math.sqrt((4 * k * T * C * C) / (gm * e * I));
+            return tau_opt * 1e6;
+        }
+
+        // =================================================================
+        // PULSE HEIGHT SPECTRUM SIMULATION
+        // =================================================================
+        
+        function simulatePulseHeightSpectrum(E_keV, material, thickness_mm, bias_V, pixelSize_mm, ENC_electrons, nEvents = 10000) {
+            const mat = MATERIALS[material];
+            const mu = getMassAttenuation(material, E_keV);
+            const absEff = getAbsorptionEfficiency(material, E_keV, thickness_mm);
+            const w_L = pixelSize_mm / thickness_mm;
+            const spectrum = [];
+            
+            for (let i = 0; i < nEvents; i++) {
+                const r = Math.random();
+                if (r > absEff) continue;
+                
+                const z_cm = -Math.log(1 - r * absEff) / mu * 10;
+                const z_norm = Math.min(z_cm / (thickness_mm / 10), 0.999);
+                
+                const cce = getCCE(z_norm, material, thickness_mm, bias_V);
+                
+                const phi_w = getWeightingPotential(z_norm, w_L);
+                const signal_fraction = cce.electron * (1 - phi_w) + cce.hole * phi_w;
+                const effective_cce = Math.min(signal_fraction + cce.total * 0.5, cce.total);
+                
+                const fano_sigma = calculateFanoNoise(E_keV, material) * mat.w_value / 1000;
+                const enc_sigma = ENC_electrons * mat.w_value / 1000;
+                const total_sigma = Math.sqrt(fano_sigma * fano_sigma + enc_sigma * enc_sigma);
+                
+                const noise = gaussianRandom() * total_sigma;
+                const measured_E = E_keV * effective_cce + noise;
+                
+                if (measured_E > 0) spectrum.push(measured_E);
+            }
+            
+            const bins = 200;
+            const E_max = E_keV * 1.1;
+            const E_min = 0;
+            const binWidth = (E_max - E_min) / bins;
+            const histogram = new Array(bins).fill(0);
+            const energies = [];
+            
+            for (let i = 0; i < bins; i++) {
+                energies.push(E_min + (i + 0.5) * binWidth);
+            }
+            
+            spectrum.forEach(E => {
+                const bin = Math.floor((E - E_min) / binWidth);
+                if (bin >= 0 && bin < bins) histogram[bin]++;
+            });
+            
+            const maxCount = Math.max(...histogram);
+            const normalized = histogram.map(c => c / maxCount);
+            
+            const peakBin = histogram.indexOf(maxCount);
+            const peakEnergy = energies[peakBin];
+            
+            let halfMax = maxCount / 2;
+            let leftIdx = peakBin, rightIdx = peakBin;
+            while (leftIdx > 0 && histogram[leftIdx] > halfMax) leftIdx--;
+            while (rightIdx < bins - 1 && histogram[rightIdx] > halfMax) rightIdx++;
+            const fwhm = (rightIdx - leftIdx) * binWidth;
+            
+            let tailCount = 0, totalCount = spectrum.length;
+            spectrum.forEach(E => { if (E < peakEnergy - 2 * fwhm) tailCount++; });
+            
+            computedData.spectrum = { energies, counts: histogram, normalized };
+            
+            return {
+                energies,
+                counts: histogram,
+                normalized,
+                peakEnergy,
+                fwhm,
+                resolution: (fwhm / peakEnergy) * 100,
+                tailFraction: (tailCount / totalCount) * 100
+            };
+        }
+
+        function gaussianRandom() {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        // =================================================================
+        // UI FUNCTIONS
+        // =================================================================
+        
+        function selectMaterial(material) {
+            state.material = material;
+            document.querySelectorAll('.material-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.material === material);
+            });
+            document.getElementById('materialBadge').textContent = material;
+            runSimulation();
+        }
+
+        function updateParameter(param) {
+            const updates = {
+                energy: () => { state.energy = parseFloat(document.getElementById('energySlider').value); document.getElementById('energyValue').textContent = state.energy + ' keV'; },
+                pixelSize: () => { state.pixelSize = parseFloat(document.getElementById('pixelSizeSlider').value); document.getElementById('pixelSizeValue').textContent = state.pixelSize.toFixed(2) + ' mm'; },
+                pixelGap: () => { state.pixelGap = parseFloat(document.getElementById('pixelGapSlider').value); document.getElementById('pixelGapValue').textContent = state.pixelGap.toFixed(3) + ' mm'; },
+                thickness: () => { state.thickness = parseFloat(document.getElementById('thicknessSlider').value); document.getElementById('thicknessValue').textContent = state.thickness.toFixed(1) + ' mm'; },
+                bias: () => { state.bias = parseFloat(document.getElementById('biasSlider').value); document.getElementById('biasValue').textContent = state.bias + ' V'; },
+                temperature: () => { state.temperature = parseFloat(document.getElementById('tempSlider').value); document.getElementById('tempValue').textContent = state.temperature + ' K'; },
+                shaping: () => { state.shaping = parseFloat(document.getElementById('shapingSlider').value); document.getElementById('shapingValue').textContent = state.shaping.toFixed(2) + ' µs'; },
+                capacitance: () => { state.capacitance = parseFloat(document.getElementById('capacitanceSlider').value); document.getElementById('capacitanceValue').textContent = state.capacitance.toFixed(1) + ' pF'; },
+                leakage: () => { state.leakage = parseFloat(document.getElementById('leakageSlider').value); document.getElementById('leakageValue').textContent = state.leakage.toFixed(2) + ' nA'; }
+            };
+            if (updates[param]) updates[param]();
+            runSimulation();
+        }
+
+        function resetParameters() {
+            state = { material: 'CdZnTe', energy: 60, pixelSize: 0.33, pixelGap: 0.02, thickness: 2.0, bias: 1000, temperature: 300, shaping: 1.0, capacitance: 5, leakage: 1 };
+            document.getElementById('energySlider').value = state.energy;
+            document.getElementById('pixelSizeSlider').value = state.pixelSize;
+            document.getElementById('pixelGapSlider').value = state.pixelGap;
+            document.getElementById('thicknessSlider').value = state.thickness;
+            document.getElementById('biasSlider').value = state.bias;
+            document.getElementById('tempSlider').value = state.temperature;
+            document.getElementById('shapingSlider').value = state.shaping;
+            document.getElementById('capacitanceSlider').value = state.capacitance;
+            document.getElementById('leakageSlider').value = state.leakage;
+            ['energy', 'pixelSize', 'pixelGap', 'thickness', 'bias', 'temperature', 'shaping', 'capacitance', 'leakage'].forEach(p => updateParameter(p));
+            selectMaterial('CdZnTe');
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        function showHelpModal() { document.getElementById('helpModal').classList.add('active'); }
+        function closeHelpModal() { document.getElementById('helpModal').classList.remove('active'); }
+
+        // =================================================================
+        // EXPORT FUNCTIONS
+        // =================================================================
+        
+        function exportChartPNG(chartId) {
+            Plotly.downloadImage(chartId, { format: 'png', width: 1200, height: 600, filename: chartId + '_export' });
+        }
+
+        function exportChartCSV(dataType) {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            const data = computedData[dataType];
+            if (!data) { alert('No data available. Run simulation first.'); return; }
+            
+            const headers = Object.keys(data);
+            csvContent += headers.join(",") + "\n";
+            
+            const length = data[headers[0]].length;
+            for (let i = 0; i < length; i++) {
+                const row = headers.map(h => data[h][i]);
+                csvContent += row.join(",") + "\n";
+            }
+            
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `${dataType}_${state.material}_${state.energy}keV.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportAllDataCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Semiconductor Detector Simulation Results\n";
+            csvContent += "Generated: " + new Date().toISOString() + "\n\n";
+            csvContent += "PARAMETERS\n";
+            csvContent += "Material," + state.material + "\n";
+            csvContent += "Energy (keV)," + state.energy + "\n";
+            csvContent += "Pixel Size (mm)," + state.pixelSize + "\n";
+            csvContent += "Thickness (mm)," + state.thickness + "\n";
+            csvContent += "Bias (V)," + state.bias + "\n";
+            csvContent += "Temperature (K)," + state.temperature + "\n";
+            csvContent += "Shaping Time (us)," + state.shaping + "\n";
+            csvContent += "Capacitance (pF)," + state.capacitance + "\n";
+            csvContent += "Leakage (nA)," + state.leakage + "\n\n";
+            
+            const mat = MATERIALS[state.material];
+            csvContent += "MATERIAL PROPERTIES\n";
+            csvContent += "Density (g/cm3)," + mat.density + "\n";
+            csvContent += "Bandgap (eV)," + mat.bandgap + "\n";
+            csvContent += "W-value (eV)," + mat.w_value + "\n";
+            csvContent += "mu_e (cm2/Vs)," + mat.mu_e + "\n";
+            csvContent += "mu_h (cm2/Vs)," + mat.mu_h + "\n";
+            csvContent += "tau_e (s)," + mat.tau_e + "\n";
+            csvContent += "tau_h (s)," + mat.tau_h + "\n\n";
+            
+            const enc = calculateENC(state.material, state.capacitance, state.shaping, state.leakage, state.temperature);
+            const res = calculateEnergyResolution(state.energy, state.material, enc.total);
+            csvContent += "RESULTS\n";
+            csvContent += "ENC Total (e-)," + enc.total.toFixed(1) + "\n";
+            csvContent += "FWHM (keV)," + res.fwhm_keV.toFixed(2) + "\n";
+            csvContent += "Resolution (%)," + res.resolution_percent.toFixed(2) + "\n";
+            csvContent += "Absorption Efficiency (%)," + (getAbsorptionEfficiency(state.material, state.energy, state.thickness) * 100).toFixed(1) + "\n";
+            csvContent += "w/L Ratio," + (state.pixelSize / state.thickness).toFixed(3) + "\n\n";
+            
+            if (computedData.absorption) {
+                csvContent += "ABSORPTION PROFILE\n";
+                csvContent += "Depth (mm),Probability (1/mm)\n";
+                for (let i = 0; i < computedData.absorption.z.length; i++) {
+                    csvContent += computedData.absorption.z[i].toFixed(4) + "," + computedData.absorption.prob[i].toFixed(6) + "\n";
+                }
+                csvContent += "\n";
+            }
+            
+            if (computedData.cce) {
+                csvContent += "CHARGE COLLECTION EFFICIENCY\n";
+                csvContent += "z/L,CCE_total,CCE_electron,CCE_hole\n";
+                for (let i = 0; i < computedData.cce.z_norm.length; i++) {
+                    csvContent += computedData.cce.z_norm[i].toFixed(4) + "," + 
+                                  computedData.cce.cce_total[i].toFixed(4) + "," +
+                                  computedData.cce.cce_electron[i].toFixed(4) + "," +
+                                  computedData.cce.cce_hole[i].toFixed(4) + "\n";
+                }
+                csvContent += "\n";
+            }
+            
+            if (computedData.spectrum) {
+                csvContent += "PULSE HEIGHT SPECTRUM\n";
+                csvContent += "Energy (keV),Counts\n";
+                for (let i = 0; i < computedData.spectrum.energies.length; i++) {
+                    csvContent += computedData.spectrum.energies[i].toFixed(2) + "," + computedData.spectrum.counts[i] + "\n";
+                }
+            }
+            
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `detector_simulation_${state.material}_${state.energy}keV_full.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportComparisonCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Material Comparison at " + state.energy + " keV\n";
+            csvContent += "Parameter,CdZnTe,CdTe,Si,HgI2,TlBr,GaAs\n";
+            
+            const materials = ['CdZnTe', 'CdTe', 'Si', 'HgI2', 'TlBr', 'GaAs'];
+            const params = [
+                ['Attenuation Length (mm)', m => getAttenuationLength(m, state.energy).toFixed(2)],
+                ['Absorption Efficiency (%)', m => (getAbsorptionEfficiency(m, state.energy, state.thickness) * 100).toFixed(1)],
+                ['Signal (fC)', m => getSignalCharge(state.energy, m).charge_fC.toFixed(2)],
+                ['e- Drift Time (ns)', m => getDriftTimes(m, state.thickness, state.bias).electron_ns.toFixed(1)],
+                ['h+ Drift Time (ns)', m => getDriftTimes(m, state.thickness, state.bias).hole_ns.toFixed(0)]
+            ];
+            
+            params.forEach(([name, fn]) => {
+                csvContent += name + "," + materials.map(fn).join(",") + "\n";
+            });
+            
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `material_comparison_${state.energy}keV.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // =================================================================
+        // PLOTTING
+        // =================================================================
+        
+        const plotLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#94a3b8', family: 'Inter, sans-serif', size: 11 },
+            margin: { t: 10, r: 20, b: 45, l: 55 },
+            xaxis: { gridcolor: '#334155', zerolinecolor: '#475569', tickfont: { size: 10 } },
+            yaxis: { gridcolor: '#334155', zerolinecolor: '#475569', tickfont: { size: 10 } },
+            legend: { bgcolor: 'rgba(30, 41, 59, 0.9)', bordercolor: '#475569', borderwidth: 1, font: { size: 10 } },
+            hovermode: 'x unified'
+        };
+        const plotConfig = { responsive: true, displayModeBar: false };
+
+        function updatePropertiesGrid() {
+            const mat = MATERIALS[state.material];
+            const E = state.bias / (state.thickness / 10);
+            const signal = getSignalCharge(state.energy, state.material);
+            const enc = calculateENC(state.material, state.capacitance, state.shaping, state.leakage, state.temperature);
+            
+            document.getElementById('propertiesGrid').innerHTML = `
+                <div class="property-item"><div class="property-label">Density</div><div class="property-value">${mat.density} <span class="property-unit">g/cm³</span></div></div>
+                <div class="property-item"><div class="property-label">Bandgap</div><div class="property-value">${mat.bandgap} <span class="property-unit">eV</span></div></div>
+                <div class="property-item"><div class="property-label">W-value</div><div class="property-value">${mat.w_value} <span class="property-unit">eV/pair</span></div></div>
+                <div class="property-item"><div class="property-label">μₑ</div><div class="property-value">${mat.mu_e} <span class="property-unit">cm²/(V·s)</span></div></div>
+                <div class="property-item"><div class="property-label">μₕ</div><div class="property-value">${mat.mu_h} <span class="property-unit">cm²/(V·s)</span></div></div>
+                <div class="property-item"><div class="property-label">Electric Field</div><div class="property-value">${(E/1000).toFixed(1)} <span class="property-unit">kV/cm</span></div></div>
+                <div class="property-item"><div class="property-label">μτₑ</div><div class="property-value">${(mat.mu_e * mat.tau_e).toExponential(1)} <span class="property-unit">cm²/V</span></div></div>
+                <div class="property-item"><div class="property-label">μτₕ</div><div class="property-value">${(mat.mu_h * mat.tau_h).toExponential(1)} <span class="property-unit">cm²/V</span></div></div>
+                <div class="property-item"><div class="property-label">w/L Ratio</div><div class="property-value">${(state.pixelSize / state.thickness).toFixed(3)}</div></div>
+                <div class="property-item"><div class="property-label">Pairs @ ${state.energy}keV</div><div class="property-value">${signal.n_pairs.toFixed(0)}</div></div>
+                <div class="property-item"><div class="property-label">Signal</div><div class="property-value">${signal.charge_fC.toFixed(2)} <span class="property-unit">fC</span></div></div>
+                <div class="property-item"><div class="property-label">ENC</div><div class="property-value">${enc.total.toFixed(0)} <span class="property-unit">e⁻</span></div></div>
+            `;
+        }
+
+        function plotAbsorption() {
+            const data = getAbsorptionProfile(state.material, state.energy, state.thickness);
+            const mat = MATERIALS[state.material];
+            Plotly.newPlot('absorptionChart', [{
+                x: data.z, y: data.prob, type: 'scatter', mode: 'lines', fill: 'tozeroy',
+                fillcolor: `${mat.color}33`, line: { color: mat.color, width: 2 }, name: state.material
+            }], { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Depth (mm)' }, yaxis: { ...plotLayout.yaxis, title: 'Probability (1/mm)' }, showlegend: false }, plotConfig);
+            
+            const attLen = getAttenuationLength(state.material, state.energy);
+            const absEff = getAbsorptionEfficiency(state.material, state.energy, state.thickness);
+            document.getElementById('attenuationLength').textContent = attLen.toFixed(2) + ' mm';
+            document.getElementById('absorptionEff').textContent = (absEff * 100).toFixed(1) + '%';
+            document.getElementById('meanDepth').textContent = (attLen * (1 - Math.exp(-state.thickness / attLen))).toFixed(2) + ' mm';
+        }
+
+        function plotWeightingPotential() {
+            const data = getWeightingPotentialProfile(state.pixelSize, state.thickness);
+            const mat = MATERIALS[state.material];
+            Plotly.newPlot('weightingChart', [
+                { x: data.z_norm, y: data.phi_pixel, type: 'scatter', mode: 'lines', line: { color: mat.color, width: 3 }, name: `Pixel` },
+                { x: data.z_norm, y: data.phi_planar, type: 'scatter', mode: 'lines', line: { color: '#64748b', width: 2, dash: 'dash' }, name: 'Planar' }
+            ], { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'z/L', range: [0, 1] }, yaxis: { ...plotLayout.yaxis, title: 'φ_w', range: [0, 1.05] }, legend: { ...plotLayout.legend, x: 0.02, y: 0.98 } }, plotConfig);
+            
+            const w_L = state.pixelSize / state.thickness;
+            const phi_mid = getWeightingPotential(0.5, w_L);
+            document.getElementById('wlRatio').textContent = w_L.toFixed(3);
+            document.getElementById('smallPixelEffect').textContent = phi_mid < 0.3 ? 'Strong' : (phi_mid < 0.45 ? 'Moderate' : 'Weak');
+            document.getElementById('holeSupression').textContent = (phi_mid * 100).toFixed(0) + '%';
+        }
+
+        function plotCCE() {
+            const data = getCCEProfile(state.material, state.thickness, state.bias);
+            const mat = MATERIALS[state.material];
+            Plotly.newPlot('cceChart', [
+                { x: data.z_norm, y: data.cce_total, type: 'scatter', mode: 'lines', line: { color: mat.color, width: 3 }, name: 'Total' },
+                { x: data.z_norm, y: data.cce_electron, type: 'scatter', mode: 'lines', line: { color: '#3b82f6', width: 2, dash: 'dot' }, name: 'e⁻' },
+                { x: data.z_norm, y: data.cce_hole, type: 'scatter', mode: 'lines', line: { color: '#ef4444', width: 2, dash: 'dot' }, name: 'h⁺' }
+            ], { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'z/L', range: [0, 1] }, yaxis: { ...plotLayout.yaxis, title: 'CCE', range: [0, 1.1] }, legend: { ...plotLayout.legend, x: 0.02, y: 0.98 } }, plotConfig);
+            
+            const avgCCE = data.cce_total.reduce((a, b) => a + b) / data.cce_total.length;
+            const cce = getCCE(0.5, state.material, state.thickness, state.bias);
+            document.getElementById('avgCCE').textContent = (avgCCE * 100).toFixed(1) + '%';
+            document.getElementById('electronDrift').textContent = cce.lambda_e.toFixed(1) + ' mm';
+            document.getElementById('holeDrift').textContent = cce.lambda_h.toFixed(2) + ' mm';
+        }
+
+        function plotSignal() {
+            const depths = [0.1, 0.5, 0.9];
+            const colors = ['#3b82f6', '#10b981', '#ef4444'];
+            const names = ['z=0.1L', 'z=0.5L', 'z=0.9L'];
+            const traces = depths.map((d, i) => {
+                const pulse = getSignalPulse(d, state.material, state.pixelSize, state.thickness, state.bias);
+                return { x: pulse.t, y: pulse.current, type: 'scatter', mode: 'lines', line: { color: colors[i], width: 2 }, name: names[i] };
+            });
+            Plotly.newPlot('signalChart', traces, { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Time (ns)' }, yaxis: { ...plotLayout.yaxis, title: 'Current (norm.)' }, legend: { ...plotLayout.legend, x: 0.65, y: 0.98 } }, plotConfig);
+            
+            const drift = getDriftTimes(state.material, state.thickness, state.bias);
+            const signal = getSignalCharge(state.energy, state.material);
+            document.getElementById('electronTime').textContent = drift.electron_ns.toFixed(1) + ' ns';
+            document.getElementById('holeTime').textContent = drift.hole_ns.toFixed(0) + ' ns';
+            document.getElementById('signalCharge').textContent = signal.charge_fC.toFixed(2) + ' fC';
+        }
+
+        function plotCloudExpansion() {
+            const data = getCloudExpansion(state.material, state.thickness, state.bias, state.temperature);
+            const pixelHalfWidth = state.pixelSize * 1000 / 2;
+            Plotly.newPlot('cloudChart', [
+                { x: data.t, y: data.sigma_e, type: 'scatter', mode: 'lines', line: { color: '#3b82f6', width: 2 }, name: 'e⁻ cloud' },
+                { x: data.t, y: data.sigma_h, type: 'scatter', mode: 'lines', line: { color: '#ef4444', width: 2 }, name: 'h⁺ cloud' },
+                { x: [0, Math.max(...data.t)], y: [pixelHalfWidth, pixelHalfWidth], type: 'scatter', mode: 'lines', line: { color: '#f59e0b', width: 2, dash: 'dash' }, name: 'w/2' }
+            ], { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Time (ns)' }, yaxis: { ...plotLayout.yaxis, title: 'σ (µm)' }, legend: { ...plotLayout.legend, x: 0.02, y: 0.98 } }, plotConfig);
+            
+            const finalSigma = data.sigma_e[data.sigma_e.length - 1];
+            document.getElementById('finalCloudSize').textContent = finalSigma.toFixed(1) + ' µm';
+            document.getElementById('chargeSharing').textContent = finalSigma > pixelHalfWidth ? 'High' : (finalSigma > pixelHalfWidth * 0.5 ? 'Medium' : 'Low');
+        }
+
+        function plotElectricField() {
+            const z = [], E_field = [];
+            const avgE = state.bias / (state.thickness / 10);
+            for (let i = 0; i <= 100; i++) {
+                z.push(i / 100);
+                E_field.push(avgE / 1000);
+            }
+            Plotly.newPlot('fieldChart', [{ x: z, y: E_field, type: 'scatter', mode: 'lines', fill: 'tozeroy', fillcolor: 'rgba(59, 130, 246, 0.2)', line: { color: '#3b82f6', width: 2 } }],
+                { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'z/L' }, yaxis: { ...plotLayout.yaxis, title: 'E (kV/cm)' }, showlegend: false }, plotConfig);
+            document.getElementById('avgField').textContent = (avgE / 1000).toFixed(1) + ' kV/cm';
+            document.getElementById('depletionStatus').textContent = 'Full';
+        }
+
+        function plotSpectrum() {
+            const enc = calculateENC(state.material, state.capacitance, state.shaping, state.leakage, state.temperature);
+            const spectrum = simulatePulseHeightSpectrum(state.energy, state.material, state.thickness, state.bias, state.pixelSize, enc.total, 20000);
+            const mat = MATERIALS[state.material];
+            
+            Plotly.newPlot('spectrumChart', [{
+                x: spectrum.energies, y: spectrum.counts, type: 'bar',
+                marker: { color: mat.color, line: { color: mat.color, width: 1 } }, name: 'Spectrum'
+            }], { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Energy (keV)' }, yaxis: { ...plotLayout.yaxis, title: 'Counts' }, showlegend: false, bargap: 0 }, plotConfig);
+            
+            document.getElementById('peakPosition').textContent = spectrum.peakEnergy.toFixed(1) + ' keV';
+            document.getElementById('fwhmEnergy').textContent = spectrum.fwhm.toFixed(2) + ' keV';
+            document.getElementById('energyResolution').textContent = spectrum.resolution.toFixed(1) + '%';
+            document.getElementById('peakToCompton').textContent = '--';
+            document.getElementById('tailFraction').textContent = spectrum.tailFraction.toFixed(1) + '%';
+            
+            // CCE histogram
+            const cceData = getCCEProfile(state.material, state.thickness, state.bias);
+            Plotly.newPlot('cceHistChart', [{ x: cceData.cce_total, type: 'histogram', marker: { color: mat.color }, nbinsx: 50 }],
+                { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'CCE' }, yaxis: { ...plotLayout.yaxis, title: 'Frequency' }, showlegend: false }, plotConfig);
+            
+            // Resolution vs energy
+            const energies = [], resolutions = [];
+            for (let E = 10; E <= 200; E += 5) {
+                energies.push(E);
+                const res = calculateEnergyResolution(E, state.material, enc.total);
+                resolutions.push(res.fwhm_keV);
+            }
+            Plotly.newPlot('resolutionChart', [{ x: energies, y: resolutions, type: 'scatter', mode: 'lines', line: { color: mat.color, width: 2 } }],
+                { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Energy (keV)' }, yaxis: { ...plotLayout.yaxis, title: 'FWHM (keV)' }, showlegend: false }, plotConfig);
+        }
+
+        function plotNoise() {
+            const enc = calculateENC(state.material, state.capacitance, state.shaping, state.leakage, state.temperature);
+            const res = calculateEnergyResolution(state.energy, state.material, enc.total);
+            const mat = MATERIALS[state.material];
+            
+            const total = enc.total;
+            const seriesP = (enc.series / total) * 100;
+            const parallelP = (enc.parallel / total) * 100;
+            const oneOverFP = (enc.oneOverF / total) * 100;
+            
+            document.getElementById('noiseGrid').innerHTML = `
+                <div class="noise-item">
+                    <div class="noise-title">Total ENC</div>
+                    <div class="noise-value">${enc.total.toFixed(0)} <span class="noise-unit">e⁻ rms</span></div>
+                    <div class="noise-bar"><div class="noise-bar-fill" style="width: 100%; background: ${mat.color};"></div></div>
+                </div>
+                <div class="noise-item">
+                    <div class="noise-title">Series (Thermal)</div>
+                    <div class="noise-value">${enc.series.toFixed(0)} <span class="noise-unit">e⁻</span></div>
+                    <div class="noise-bar"><div class="noise-bar-fill" style="width: ${seriesP}%; background: #3b82f6;"></div></div>
+                </div>
+                <div class="noise-item">
+                    <div class="noise-title">Parallel (Shot)</div>
+                    <div class="noise-value">${enc.parallel.toFixed(0)} <span class="noise-unit">e⁻</span></div>
+                    <div class="noise-bar"><div class="noise-bar-fill" style="width: ${parallelP}%; background: #10b981;"></div></div>
+                </div>
+                <div class="noise-item">
+                    <div class="noise-title">1/f Noise</div>
+                    <div class="noise-value">${enc.oneOverF.toFixed(0)} <span class="noise-unit">e⁻</span></div>
+                    <div class="noise-bar"><div class="noise-bar-fill" style="width: ${oneOverFP}%; background: #f59e0b;"></div></div>
+                </div>
+                <div class="noise-item">
+                    <div class="noise-title">FWHM @ ${state.energy} keV</div>
+                    <div class="noise-value">${res.fwhm_keV.toFixed(2)} <span class="noise-unit">keV</span></div>
+                </div>
+                <div class="noise-item">
+                    <div class="noise-title">Energy Resolution</div>
+                    <div class="noise-value">${res.resolution_percent.toFixed(2)} <span class="noise-unit">%</span></div>
+                </div>
+            `;
+            
+            // ENC vs shaping time
+            const shapings = [], encs_total = [], encs_series = [], encs_parallel = [];
+            for (let tau = 0.01; tau <= 10; tau *= 1.2) {
+                shapings.push(tau);
+                const e = calculateENC(state.material, state.capacitance, tau, state.leakage, state.temperature);
+                encs_total.push(e.total);
+                encs_series.push(e.series);
+                encs_parallel.push(e.parallel);
+            }
+            Plotly.newPlot('encShapingChart', [
+                { x: shapings, y: encs_total, type: 'scatter', mode: 'lines', line: { color: mat.color, width: 3 }, name: 'Total' },
+                { x: shapings, y: encs_series, type: 'scatter', mode: 'lines', line: { color: '#3b82f6', width: 2, dash: 'dot' }, name: 'Series' },
+                { x: shapings, y: encs_parallel, type: 'scatter', mode: 'lines', line: { color: '#10b981', width: 2, dash: 'dot' }, name: 'Parallel' }
+            ], { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Shaping Time (µs)', type: 'log' }, yaxis: { ...plotLayout.yaxis, title: 'ENC (e⁻)' }, legend: { ...plotLayout.legend, x: 0.7, y: 0.98 } }, plotConfig);
+            
+            const optTau = getOptimalShapingTime(state.capacitance, state.leakage);
+            const minEnc = calculateENC(state.material, state.capacitance, optTau, state.leakage, state.temperature).total;
+            document.getElementById('optimalShaping').textContent = optTau.toFixed(2) + ' µs';
+            document.getElementById('minENC').textContent = minEnc.toFixed(0) + ' e⁻';
+            
+            // ENC vs capacitance
+            const caps = [], encs_cap = [];
+            for (let c = 0.5; c <= 50; c += 1) {
+                caps.push(c);
+                encs_cap.push(calculateENC(state.material, c, state.shaping, state.leakage, state.temperature).total);
+            }
+            Plotly.newPlot('encCapChart', [{ x: caps, y: encs_cap, type: 'scatter', mode: 'lines', line: { color: mat.color, width: 2 } }],
+                { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Capacitance (pF)' }, yaxis: { ...plotLayout.yaxis, title: 'ENC (e⁻)' }, showlegend: false }, plotConfig);
+            
+            // SNR vs energy
+            const snr_energies = [], snrs = [];
+            for (let E = 5; E <= 200; E += 5) {
+                snr_energies.push(E);
+                const sig = getSignalCharge(E, state.material).n_pairs;
+                snrs.push(sig / enc.total);
+            }
+            Plotly.newPlot('snrChart', [{ x: snr_energies, y: snrs, type: 'scatter', mode: 'lines', line: { color: mat.color, width: 2 } }],
+                { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Energy (keV)' }, yaxis: { ...plotLayout.yaxis, title: 'SNR' }, showlegend: false }, plotConfig);
+            
+            const snrAtEnergy = getSignalCharge(state.energy, state.material).n_pairs / enc.total;
+            const minDetectable = enc.total * 3 * mat.w_value / 1000;
+            document.getElementById('snrAtEnergy').textContent = snrAtEnergy.toFixed(1);
+            document.getElementById('minDetectable').textContent = minDetectable.toFixed(1) + ' keV';
+            
+            // Noise breakdown pie chart
+            Plotly.newPlot('noiseBreakdownChart', [{
+                values: [enc.series, enc.parallel, enc.oneOverF],
+                labels: ['Series', 'Parallel', '1/f'],
+                type: 'pie',
+                marker: { colors: ['#3b82f6', '#10b981', '#f59e0b'] },
+                textinfo: 'label+percent',
+                textfont: { size: 11 }
+            }], { ...plotLayout, showlegend: false, margin: { t: 10, r: 10, b: 10, l: 10 } }, plotConfig);
+        }
+
+        function updateComparisonTable() {
+            const materials = ['CdZnTe', 'CdTe', 'Si', 'HgI2', 'TlBr', 'GaAs'];
+            let html = `<tr><th>Property</th>${materials.map(m => `<th>${m}</th>`).join('')}</tr>`;
+            
+            const rows = [
+                ['Density (g/cm³)', m => MATERIALS[m].density.toFixed(2)],
+                ['Z_eff', m => MATERIALS[m].Z_eff],
+                ['Bandgap (eV)', m => MATERIALS[m].bandgap.toFixed(2)],
+                ['W-value (eV)', m => MATERIALS[m].w_value.toFixed(2)],
+                ['μₑ (cm²/Vs)', m => MATERIALS[m].mu_e],
+                ['μₕ (cm²/Vs)', m => MATERIALS[m].mu_h],
+                [`Att. Length @ ${state.energy}keV`, m => { const v = getAttenuationLength(m, state.energy); return `<span class="${v <= state.thickness ? 'highlight' : 'warning'}">${v.toFixed(2)} mm</span>`; }],
+                ['Absorption Eff.', m => { const v = getAbsorptionEfficiency(m, state.energy, state.thickness) * 100; return `<span class="${v > 90 ? 'highlight' : (v > 50 ? '' : 'warning')}">${v.toFixed(1)}%</span>`; }],
+                ['Signal (fC)', m => getSignalCharge(state.energy, m).charge_fC.toFixed(2)],
+                ['e⁻ Drift (ns)', m => getDriftTimes(m, state.thickness, state.bias).electron_ns.toFixed(1)],
+                ['h⁺ Drift (ns)', m => getDriftTimes(m, state.thickness, state.bias).hole_ns.toFixed(0)]
+            ];
+            
+            rows.forEach(([name, fn]) => { html += `<tr><td>${name}</td>${materials.map(m => `<td>${fn(m)}</td>`).join('')}</tr>`; });
+            document.getElementById('comparisonTable').innerHTML = html;
+            
+            // Comparison charts
+            const energies = [];
+            for (let E = 10; E <= 200; E += 5) energies.push(E);
+            
+            const absTraces = materials.map(m => ({
+                x: energies, y: energies.map(E => getAbsorptionEfficiency(m, E, state.thickness) * 100),
+                type: 'scatter', mode: 'lines', line: { color: MATERIALS[m].color, width: 2 }, name: m
+            }));
+            Plotly.newPlot('absCompareChart', absTraces, { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Energy (keV)' }, yaxis: { ...plotLayout.yaxis, title: 'Absorption (%)' }, legend: { ...plotLayout.legend, x: 0.7, y: 0.98 } }, plotConfig);
+            
+            const cceTraces = materials.map(m => {
+                const d = getCCEProfile(m, state.thickness, state.bias);
+                return { x: d.z_norm, y: d.cce_total, type: 'scatter', mode: 'lines', line: { color: MATERIALS[m].color, width: 2 }, name: m };
+            });
+            Plotly.newPlot('cceCompareChart', cceTraces, { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'z/L' }, yaxis: { ...plotLayout.yaxis, title: 'CCE' }, legend: { ...plotLayout.legend, x: 0.02, y: 0.4 } }, plotConfig);
+            
+            const wpTraces = materials.map(m => {
+                const d = getWeightingPotentialProfile(state.pixelSize, state.thickness);
+                return { x: d.z_norm, y: d.phi_pixel, type: 'scatter', mode: 'lines', line: { color: MATERIALS[m].color, width: 2 }, name: m };
+            });
+            Plotly.newPlot('wpCompareChart', wpTraces.slice(0, 1).concat([{ x: [0, 1], y: [0, 1], type: 'scatter', mode: 'lines', line: { color: '#64748b', width: 1, dash: 'dash' }, name: 'Planar' }]),
+                { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'z/L' }, yaxis: { ...plotLayout.yaxis, title: 'φ_w' }, showlegend: true, legend: { ...plotLayout.legend, x: 0.02, y: 0.98 } }, plotConfig);
+            
+            const encBase = calculateENC(state.material, state.capacitance, state.shaping, state.leakage, state.temperature).total;
+            const resTraces = materials.map(m => ({
+                x: energies, y: energies.map(E => calculateEnergyResolution(E, m, encBase).fwhm_keV),
+                type: 'scatter', mode: 'lines', line: { color: MATERIALS[m].color, width: 2 }, name: m
+            }));
+            Plotly.newPlot('resCompareChart', resTraces, { ...plotLayout, xaxis: { ...plotLayout.xaxis, title: 'Energy (keV)' }, yaxis: { ...plotLayout.yaxis, title: 'FWHM (keV)' }, legend: { ...plotLayout.legend, x: 0.7, y: 0.98 } }, plotConfig);
+        }
+
+        // =================================================================
+        // MAIN SIMULATION
+        // =================================================================
+        
+        function runSimulation() {
+            updatePropertiesGrid();
+            plotAbsorption();
+            plotWeightingPotential();
+            plotCCE();
+            plotSignal();
+            plotCloudExpansion();
+            plotElectricField();
+            plotSpectrum();
+            plotNoise();
+            updateComparisonTable();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', runSimulation);
+        document.getElementById('helpModal').addEventListener('click', function(e) { if (e.target === this) closeHelpModal(); });
+    </script>
+</body>
+</html>
