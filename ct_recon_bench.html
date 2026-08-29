@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CT Reconstruction Bench</title>
+<style>
+:root{
+  --bg:#0d1317; --panel:#141d23; --panel2:#182229; --line:#233039;
+  --ink:#c9d6dd; --dim:#7d919c; --faint:#4d6270;
+  --amber:#f2a93b; --cyan:#5cc9e0; --red:#e5654b; --green:#7fd18a;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px}
+body{-webkit-font-smoothing:antialiased}
+
+header{
+  border-bottom:1px solid var(--line); padding:14px 20px;
+  display:flex; align-items:baseline; gap:18px; flex-wrap:wrap;
+  background:linear-gradient(180deg,#101a20,#0d1317);
+}
+header h1{
+  font-size:15px; letter-spacing:.16em; text-transform:uppercase; margin:0;
+  font-family:var(--mono); font-weight:600; color:var(--ink);
+}
+header h1 span{color:var(--amber)}
+header .sub{color:var(--dim); font-size:12.5px; font-family:var(--mono)}
+header .spacer{flex:1}
+
+.layout{display:grid; grid-template-columns:322px 1fr; min-height:calc(100vh - 52px)}
+aside{border-right:1px solid var(--line); background:var(--panel); padding:0 0 40px;
+  max-height:calc(100vh - 52px); overflow-y:auto; position:sticky; top:0}
+main{padding:18px 20px 60px; min-width:0}
+
+.group{border-bottom:1px solid var(--line); padding:14px 16px}
+.group > h2{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--faint); margin:0 0 12px; font-weight:600;
+}
+.row{margin-bottom:11px}
+.row:last-child{margin-bottom:0}
+label{display:block; font-size:11.5px; color:var(--dim); margin-bottom:4px; font-family:var(--mono); letter-spacing:.03em}
+label .val{float:right; color:var(--amber); font-variant-numeric:tabular-nums}
+select,input[type=number],input[type=text]{
+  width:100%; background:var(--panel2); color:var(--ink); border:1px solid var(--line);
+  border-radius:3px; padding:6px 8px; font-family:var(--mono); font-size:12.5px;
+}
+select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber); outline-offset:1px}
+input[type=range]{width:100%; accent-color:var(--amber); background:transparent}
+.seg{display:flex; gap:0; border:1px solid var(--line); border-radius:3px; overflow:hidden}
+.seg button{
+  flex:1; background:var(--panel2); border:0; color:var(--dim); padding:6px 4px;
+  font-family:var(--mono); font-size:11.5px; cursor:pointer; border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:#25333c; color:var(--amber)}
+.chk{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; color:var(--dim); cursor:pointer}
+.chk input{accent-color:var(--amber)}
+.hint{font-size:11px; color:var(--faint); line-height:1.45; margin-top:6px}
+
+.actions{padding:14px 16px; display:flex; gap:8px; position:sticky; bottom:0; background:var(--panel); border-top:1px solid var(--line)}
+button.primary{
+  flex:1; background:var(--amber); color:#16202a; border:0; border-radius:3px; padding:10px;
+  font-family:var(--mono); font-weight:700; font-size:12px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer;
+}
+button.primary:disabled{opacity:.45; cursor:progress}
+button.ghost{
+  background:transparent; color:var(--dim); border:1px solid var(--line); border-radius:3px;
+  padding:10px 12px; font-family:var(--mono); font-size:12px; cursor:pointer;
+}
+button.ghost:hover{color:var(--amber); border-color:var(--amber)}
+
+.scene-desc{font-size:12px; color:var(--dim); line-height:1.5; margin-top:8px; border-left:2px solid var(--line); padding-left:9px}
+
+.bench{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px}
+@media(max-width:1250px){.bench{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pane{background:var(--panel); border:1px solid var(--line); border-radius:4px; overflow:hidden}
+.pane .cap{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:7px 10px; border-bottom:1px solid var(--line);
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint);
+}
+.pane .cap em{font-style:normal; color:var(--cyan); text-transform:none; letter-spacing:0; font-size:11px}
+.pane canvas{display:block; width:100%; height:auto; background:#000}
+.pane canvas.img{image-rendering:pixelated; aspect-ratio:1/1}
+
+.metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:10px; margin-top:16px}
+.metric{background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:10px 12px}
+.metric .k{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint)}
+.metric .v{font-family:var(--mono); font-size:19px; color:var(--ink); margin-top:5px; font-variant-numeric:tabular-nums}
+.metric .v small{font-size:11px; color:var(--dim); margin-left:3px}
+.metric.good .v{color:var(--green)} .metric.warn .v{color:var(--amber)} .metric.bad .v{color:var(--red)}
+
+.plots{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:16px}
+@media(max-width:1000px){.plots{grid-template-columns:1fr}}
+
+h3.sec{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--faint); margin:26px 0 10px; font-weight:600; border-bottom:1px solid var(--line); padding-bottom:7px;
+}
+.pins{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px}
+.pin{background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:9px}
+.pin canvas{width:100%; height:auto; aspect-ratio:1/1; image-rendering:pixelated; border-radius:2px; background:#000}
+.pin .t{font-family:var(--mono); font-size:11px; color:var(--amber); margin:7px 0 5px; line-height:1.35}
+.pin .m{font-family:var(--mono); font-size:10.5px; color:var(--dim); line-height:1.6}
+.pin .m b{color:var(--ink); font-weight:500}
+.pin button{margin-top:7px; width:100%; background:transparent; border:1px solid var(--line); color:var(--faint);
+  font-family:var(--mono); font-size:10px; padding:4px; border-radius:2px; cursor:pointer}
+.pin button:hover{color:var(--red); border-color:var(--red)}
+
+.status{
+  font-family:var(--mono); font-size:11.5px; color:var(--dim);
+  display:flex; align-items:center; gap:10px; min-height:18px;
+}
+.bar{height:3px; width:170px; background:var(--line); border-radius:2px; overflow:hidden}
+.bar i{display:block; height:100%; width:0%; background:var(--amber); transition:width .1s linear}
+
+details.notes{margin-top:26px; border-top:1px solid var(--line); padding-top:14px}
+details.notes summary{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint); cursor:pointer}
+details.notes .body{font-size:12.5px; color:var(--dim); line-height:1.65; margin-top:12px; max-width:76ch}
+details.notes .body b{color:var(--ink); font-weight:600}
+details.notes .body code{font-family:var(--mono); color:var(--cyan); font-size:12px}
+details.notes .body p{margin:0 0 10px}
+
+.legend{font-family:var(--mono); font-size:10.5px; color:var(--faint); margin-top:8px; display:flex; gap:16px; flex-wrap:wrap}
+.legend i{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:-1px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CT Reconstruction <span>Bench</span></h1>
+  <div class="sub">parallel-beam · polychromatic forward model · FBP / SIRT</div>
+  <div class="spacer"></div>
+  <div class="status"><span id="status">ready</span><span class="bar"><i id="pbar"></i></span></div>
+</header>
+
+<div class="layout">
+<aside>
+
+  <div class="group">
+    <h2>Scenario</h2>
+    <div class="row">
+      <select id="scenario"></select>
+      <div class="scene-desc" id="sceneDesc"></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Acquisition geometry</h2>
+    <div class="row">
+      <label>Reconstruction matrix <span class="val" id="vVox"></span></label>
+      <div class="seg" id="segN">
+        <button data-v="64">64</button><button data-v="128">128</button>
+        <button data-v="256">256</button><button data-v="512">512</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Detector elements <span class="val" id="vPitch"></span></label>
+      <div class="seg" id="segDet">
+        <button data-v="128">128</button><button data-v="256">256</button><button data-v="512">512</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Projections over 180° <span class="val" id="vViews"></span></label>
+      <div class="seg" id="segViews">
+        <button data-v="45">45</button><button data-v="90">90</button>
+        <button data-v="180">180</button><button data-v="360">360</button><button data-v="720">720</button>
+      </div>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="aperture" checked> Integrate over detector aperture</label>
+      <div class="hint">Off = point sampling. On = 3-point average across each element, so pitch limits resolution as it does on a real module.</div>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Detector &amp; dose</h2>
+    <div class="row">
+      <label>Detector model</label>
+      <div class="seg" id="segDetType">
+        <button data-v="eid">EID (CsI)</button><button data-v="pcd">PCD (CZT)</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Incident quanta per element <span class="val" id="vDose"></span></label>
+      <input type="range" id="dose" min="2.6" max="6.5" step="0.05" value="5.5">
+    </div>
+    <div class="row" id="rowEnoise">
+      <label>Electronic noise σ<sub>e</sub> <span class="val" id="vEn"></span></label>
+      <input type="range" id="enoise" min="0" max="120" step="1" value="30">
+    </div>
+    <div class="row" id="rowCS" hidden>
+      <label>Charge sharing to neighbours <span class="val" id="vCS"></span></label>
+      <input type="range" id="csFrac" min="0" max="0.4" step="0.01" value="0.12">
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Physics &amp; artifacts</h2>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="poly" checked> Polychromatic beam (120 kVp)</label>
+      <div class="hint">Off = monochromatic at 70 keV, so HU come out exact. On = beam hardening: cupping, dark bands, metal streaks.</div>
+    </div>
+    <div class="row">
+      <label>Scatter-to-primary ratio <span class="val" id="vSpr"></span></label>
+      <input type="range" id="spr" min="0" max="0.6" step="0.01" value="0">
+    </div>
+    <div class="row">
+      <label>Channel gain non-uniformity <span class="val" id="vRing"></span></label>
+      <input type="range" id="ring" min="0" max="3" step="0.05" value="0">
+    </div>
+    <div class="row">
+      <label>Dead / drifting channels <span class="val" id="vBad"></span></label>
+      <input type="range" id="bad" min="0" max="8" step="1" value="0">
+    </div>
+    <div class="row">
+      <label>Motion amplitude <span class="val" id="vMot"></span></label>
+      <input type="range" id="motion" min="0" max="12" step="0.25" value="0">
+    </div>
+    <div class="row">
+      <label>Noise seed</label>
+      <input type="number" id="seed" value="7" min="1" max="99999">
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Reconstruction</h2>
+    <div class="row">
+      <label>Method</label>
+      <select id="method">
+        <option value="fbp">Filtered backprojection</option>
+        <option value="bp">Unfiltered backprojection</option>
+        <option value="sirt">SIRT (iterative)</option>
+        <option value="sirttv">SIRT + TV (MBIR-like)</option>
+      </select>
+    </div>
+    <div class="row" id="rowFilter">
+      <label>Reconstruction kernel</label>
+      <select id="filter">
+        <option value="ramlak">Ram-Lak — sharp</option>
+        <option value="shepp" selected>Shepp-Logan — general</option>
+        <option value="cosine">Cosine</option>
+        <option value="hamming">Hamming — smooth</option>
+        <option value="hann">Hann — smoothest</option>
+      </select>
+    </div>
+    <div class="row" id="rowCut">
+      <label>Kernel cutoff <span class="val" id="vCut"></span></label>
+      <input type="range" id="cutoff" min="0.15" max="1" step="0.01" value="1">
+    </div>
+    <div class="row" id="rowIter" hidden>
+      <label>Iterations <span class="val" id="vIter"></span></label>
+      <input type="range" id="iters" min="1" max="40" step="1" value="12">
+    </div>
+    <div class="row" id="rowTV" hidden>
+      <label>TV regularization <span class="val" id="vTV"></span></label>
+      <input type="range" id="tvw" min="0" max="1" step="0.02" value="0.3">
+    </div>
+    <div class="row" id="rowWarm" hidden>
+      <label class="chk"><input type="checkbox" id="warm" checked> Warm start from FBP</label>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Post-processing</h2>
+    <div class="row">
+      <label>Denoiser</label>
+      <select id="denoise">
+        <option value="none">None</option>
+        <option value="gauss">Gaussian</option>
+        <option value="median">Median 3×3</option>
+        <option value="bilateral">Bilateral (edge-preserving)</option>
+        <option value="tv">Total variation</option>
+        <option value="nlm">Non-local means</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Strength <span class="val" id="vDn"></span></label>
+      <input type="range" id="dnStr" min="0.1" max="2.5" step="0.05" value="1">
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Display</h2>
+    <div class="row">
+      <label>Window preset</label>
+      <select id="preset">
+        <option value="soft">Soft tissue · 400/40</option>
+        <option value="brain">Brain · 80/40</option>
+        <option value="lung">Lung · 1500/−600</option>
+        <option value="bone">Bone · 2000/500</option>
+        <option value="wide">Wide · 4000/0</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Window width <span class="val" id="vWW"></span></label>
+      <input type="range" id="ww" min="40" max="4000" step="10" value="400">
+    </div>
+    <div class="row">
+      <label>Window level <span class="val" id="vWL"></span></label>
+      <input type="range" id="wl" min="-1000" max="1500" step="10" value="40">
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="showROI"> Show measurement ROIs</label>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="run">Run scan</button>
+    <button class="ghost" id="pin" title="Keep this result for comparison">Pin</button>
+  </div>
+</aside>
+
+<main>
+  <div class="bench">
+    <div class="pane">
+      <div class="cap"><span>Ground truth</span><em id="capGT">70 keV</em></div>
+      <canvas id="cGT" class="img" width="256" height="256"></canvas>
+    </div>
+    <div class="pane">
+      <div class="cap"><span>Sinogram</span><em id="capSino"></em></div>
+      <canvas id="cSino" class="img" width="256" height="256"></canvas>
+    </div>
+    <div class="pane">
+      <div class="cap"><span>Reconstruction</span><em id="capRec"></em></div>
+      <canvas id="cRec" class="img" width="256" height="256"></canvas>
+    </div>
+    <div class="pane">
+      <div class="cap"><span>Error map</span><em>measured − truth, ±250 HU</em></div>
+      <canvas id="cErr" class="img" width="256" height="256"></canvas>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i style="background:#4a76c8"></i>too low (−250 HU)</span>
+    <span><i style="background:#1a2530"></i>match</span>
+    <span><i style="background:#e5654b"></i>too high (+250 HU)</span>
+    <span id="roiLegend" hidden><i style="background:#5cc9e0"></i>background ROI &nbsp; <i style="background:#f2a93b"></i>signal ROI &nbsp; <i style="background:#7fd18a"></i>MTF edge</span>
+  </div>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="plots">
+    <div class="pane">
+      <div class="cap"><span>Central profile</span><em>HU vs position</em></div>
+      <canvas id="cProf" width="520" height="300"></canvas>
+    </div>
+    <div class="pane">
+      <div class="cap"><span>MTF</span><em>circular-edge method</em></div>
+      <canvas id="cMTF" width="520" height="300"></canvas>
+    </div>
+    <div class="pane">
+      <div class="cap"><span>Noise power spectrum</span><em>uniform ROI</em></div>
+      <canvas id="cNPS" width="520" height="300"></canvas>
+    </div>
+  </div>
+
+  <h3 class="sec">Pinned comparisons</h3>
+  <div class="pins" id="pins"><div style="color:var(--faint);font-family:var(--mono);font-size:12px">Pin a result to hold it here while you change one parameter at a time.</div></div>
+
+  <details class="notes">
+    <summary>What is actually being simulated</summary>
+    <div class="body">
+      <p><b>Forward model.</b> Phantoms are sums of analytic ellipses, so line integrals are exact: for each ellipse the Radon transform is closed-form, and path length is accumulated <i>per material</i>. Nothing is projected from a pixel grid, so the sinogram carries no discretization error of its own.</p>
+      <p><b>Spectrum.</b> Five energy bins (40–120 keV) with 120 kVp fluence weights. Transmitted quanta per bin are <code>N₀·w(E)·exp(−Σ μₘ(E)·Lₘ)</code> with μ from tabulated NIST-like values for water, fat, lung, cortical bone, iodinated blood and titanium. The log-signal is formed from the <i>summed</i> bins, which is where beam hardening comes from — no artifact is painted on.</p>
+      <p><b>Detector.</b> EID weights each bin by E and adds Gaussian electronic noise; PCD counts quanta with unity weight, has no electronic noise floor, and optionally spreads charge into neighbouring channels. At low dose the difference in CNR is the real one you would measure on a bench.</p>
+      <p><b>Artifacts.</b> Scatter is added as an additive intensity floor before the log. Ring artifacts come from a fixed per-channel gain error. Motion displaces flagged structures as a function of view angle. Sparse views, photon starvation and metal streaks all emerge from the physics rather than from a filter.</p>
+      <p><b>Reconstruction.</b> FBP uses an FFT ramp filter in cycles/cm with selectable apodization; the backprojection is in physical units, so the output is μ in cm⁻¹ and converts to HU against μ<sub>water</sub>(70 keV) = 0.195 cm⁻¹. SIRT uses a matched Joseph ray-driven projector pair with row/column normalization; the TV variant adds a gradient-descent step on total variation between iterations.</p>
+      <p><b>Metrics.</b> Noise σ and CNR from the marked ROIs; RMSE, PSNR and SSIM against the ground truth rasterized on the same grid, evaluated only inside the patient and with HU mapped to [0,1] for SSIM (RMSE includes partial-volume differences at sharp edges, so it never reaches zero); cupping as centre-minus-periphery HU in the uniform region; MTF from an oversampled radial edge-spread function around the marked disk; NPS from the 2-D FFT of the background ROI. Attenuation values are approximate and intended for teaching and method comparison, not for dosimetry or acceptance testing.</p>
+    </div>
+  </details>
+</main>
+</div>
+
+<script>
+"use strict";
+
+/* ============================== utilities ============================== */
+const $ = id => document.getElementById(id);
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let rng = mulberry32(7);
+function gauss(){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function poisson(lam){
+  if(lam<=0) return 0;
+  if(lam>60) return Math.max(0, lam + Math.sqrt(lam)*gauss());
+  const L=Math.exp(-lam); let k=0,p=1;
+  do{k++;p*=rng();}while(p>L);
+  return k-1;
+}
+const nextFrame = ()=>new Promise(r=>requestAnimationFrame(()=>r()));
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+
+/* ============================== physics tables ============================== */
+// linear attenuation coefficient, 1/cm, at 40 / 60 / 80 / 100 / 120 keV
+const E_BINS=[40,60,80,100,120];
+const SPEC_W =[0.12,0.30,0.28,0.20,0.10];      // relative photon fluence, 120 kVp + filtration
+const MU = {
+  air:    [0.0000,0.0000,0.0000,0.0000,0.0000],
+  lung:   [0.0670,0.0515,0.0460,0.0428,0.0403],
+  fat:    [0.2270,0.1830,0.1670,0.1570,0.1490],
+  softLow:[0.2626,0.2019,0.1803,0.1676,0.1578],
+  soft:   [0.2680,0.2060,0.1840,0.1710,0.1610],
+  softHi: [0.2734,0.2101,0.1877,0.1744,0.1642],
+  muscle: [0.2760,0.2124,0.1897,0.1763,0.1660],
+  bone:   [1.2780,0.6040,0.4280,0.3560,0.3200],
+  iodine: [2.0000,0.9500,0.5800,0.4400,0.3600],
+  metal:  [5.4700,1.8300,1.0300,0.7500,0.6200]
+};
+const MATS = Object.keys(MU);
+const MI = {}; MATS.forEach((m,i)=>MI[m]=i);
+// monochromatic reference at 70 keV (mean of 60 and 80 keV bins)
+const MU_EFF = {}; MATS.forEach(m=>MU_EFF[m]=0.5*(MU[m][1]+MU[m][2]));
+const MU_WATER = MU_EFF.soft;                     // 0.195 cm^-1
+const toHU  = mu => 1000*(mu-MU_WATER)/MU_WATER;
+const fromHU= hu => MU_WATER*(1+hu/1000);
+
+/* ============================== phantoms ============================== */
+// object = {x,y,a,b,phi, comp:{material:weight}, move:bool}   coords normalized to unit circle
+function ell(x,y,a,b,phi,comp,move){return {x,y,a,b,phi:phi*Math.PI/180,comp,move:!!move};}
+
+const SCENARIOS = {
+  head: {
+    name:"Head — Shepp-Logan",
+    desc:"The reference case. Skull, ventricles and small low-contrast lesions. Start here to see kernel and dose trade-offs without confounding artifacts.",
+    fov:220,
+    build(){
+      const o=[];
+      o.push(ell(0,0,0.69,0.92,0,{bone:0.42, soft:0.58}));            // skull + tissue mix
+      o.push(ell(0,-0.0184,0.6624,0.874,0,{bone:-0.42, soft:-0.58+1.0}));// brain (soft)
+      o.push(ell(0.22,0,0.11,0.31,-72,{soft:-1,softLow:1}));
+      o.push(ell(-0.22,0,0.16,0.41,72,{soft:-1,softLow:1}));
+      o.push(ell(0,0.35,0.21,0.25,0,{soft:-1,softHi:1}));
+      o.push(ell(-0.48,0.33,0.05,0.05,0,{soft:-1,bone:1}));            // resolution rod
+      o.push(ell(0,-0.1,0.046,0.046,0,{soft:-1,softHi:1}));
+      o.push(ell(-0.08,-0.605,0.046,0.023,0,{soft:-1,air:1}));
+      o.push(ell(0,-0.605,0.023,0.023,0,{soft:-1,air:1}));
+      o.push(ell(0.06,-0.605,0.023,0.046,0,{soft:-1,air:1}));
+      return o;
+    },
+    bgROI:{x:0.27,y:-0.21,r:0.10}, sigROI:{x:0,y:0.35,r:0.13},
+    mtf:{x:-0.48,y:0.33,r:0.05}, cupA:{x:0,y:-0.30,r:0.09}, cupB:{x:0,y:-0.80,r:0.085}
+  },
+
+  abdomen: {
+    name:"Abdomen — iodine + low contrast",
+    desc:"Body habitus with fat layer, spine and iodinated vessels, plus ±20 HU lesions. Made for dose vs low-contrast detectability studies.",
+    fov:380,
+    build(){
+      const o=[];
+      o.push(ell(0,0,0.92,0.72,0,{fat:1}));
+      o.push(ell(0,0,0.86,0.65,0,{fat:-1,soft:1}));
+      o.push(ell(0,-0.44,0.20,0.16,0,{soft:-1,bone:1}));               // vertebral body
+      o.push(ell(0,-0.44,0.10,0.08,0,{bone:-1,soft:1}));               // marrow
+      o.push(ell(-0.55,0.05,0.16,0.16,0,{soft:-1,softLow:1}));         // organ
+      o.push(ell(0.40,0.10,0.26,0.22,0,{soft:-1,softHi:1}));           // liver-like
+      o.push(ell(0.40,0.10,0.06,0.06,0,{softHi:-1,iodine:0.55,soft:0.45})); // enhancing lesion
+      o.push(ell(-0.12,-0.10,0.05,0.05,0,{soft:-0.30, iodine:0.30}));       // aorta
+      o.push(ell(0.10,-0.12,0.035,0.035,0,{soft:-0.25, iodine:0.25}));      // IVC
+      o.push(ell(-0.32,0.42,0.085,0.085,0,{soft:-1,softHi:1}));            // +20 HU lesion
+      o.push(ell(-0.10,0.42,0.085,0.085,0,{soft:-1,softLow:1}));           // -20 HU lesion
+      o.push(ell(0.18,0.42,0.055,0.055,0,{soft:-1,bone:1}));                // resolution rod
+      o.push(ell(0.62,-0.42,0.09,0.09,0,{soft:-1,air:1}));                  // bowel gas
+      return o;
+    },
+    bgROI:{x:0,y:0.02,r:0.11}, sigROI:{x:-0.32,y:0.42,r:0.065},
+    mtf:{x:0.18,y:0.42,r:0.055}, cupA:{x:0,y:0,r:0.09}, cupB:{x:0.76,y:0.08,r:0.08}
+  },
+
+  metal: {
+    name:"Pelvis — bilateral metal implants",
+    desc:"Two prosthetic stems. Photon starvation plus beam hardening produce the classic dark bands and streaks. Compare FBP against SIRT + TV here.",
+    fov:340,
+    build(){
+      const o=[];
+      o.push(ell(0,0,0.95,0.62,0,{fat:1}));
+      o.push(ell(0,0,0.90,0.56,0,{fat:-1,soft:1}));
+      o.push(ell(0,-0.36,0.18,0.13,0,{soft:-1,bone:1}));
+      o.push(ell(-0.52,0.02,0.16,0.20,15,{soft:-1,bone:1}));
+      o.push(ell(0.52,0.02,0.16,0.20,-15,{soft:-1,bone:1}));
+      o.push(ell(-0.52,0.02,0.050,0.050,0,{bone:-1,metal:0.5,soft:0.5}));
+      o.push(ell(0.52,0.02,0.050,0.050,0,{bone:-1,metal:0.5,soft:0.5}));
+      o.push(ell(0,0.14,0.16,0.16,0,{soft:-1,softHi:1}));              // soft-tissue target
+      o.push(ell(0,0.42,0.055,0.055,0,{soft:-1,bone:1}));              // resolution rod
+      return o;
+    },
+    bgROI:{x:-0.24,y:-0.10,r:0.10}, sigROI:{x:0,y:0.14,r:0.11},
+    mtf:{x:0,y:0.42,r:0.055}, cupA:{x:0,y:-0.10,r:0.085}, cupB:{x:0.78,y:-0.06,r:0.08}
+  },
+
+  qa: {
+    name:"QA phantom — contrast & resolution",
+    desc:"Water cylinder with material rods and a low-contrast ladder. The clean geometry makes CNR, MTF and NPS directly comparable between settings.",
+    fov:250,
+    build(){
+      const o=[];
+      o.push(ell(0,0,0.88,0.88,0,{soft:1}));
+      o.push(ell(0,0,0.92,0.92,0,{bone:0.06}));                        // acrylic-ish shell
+      o.push(ell(0,0,0.88,0.88,0,{bone:-0.06}));
+      const rods=[["bone",1,0],["iodine",1,45],["fat",1,90],["air",1,135],
+                  ["softHi",1,180],["softLow",1,225],["muscle",1,270],["lung",1,315]];
+      rods.forEach(([m,w,ang])=>{
+        const t=ang*Math.PI/180, R=0.62;
+        o.push(ell(R*Math.cos(t),R*Math.sin(t),0.10,0.10,0,{soft:-w,[m]:w}));
+      });
+      o.push(ell(0,0,0.085,0.085,0,{soft:-1,bone:1}));                 // central resolution rod
+      for(let i=0;i<5;i++){                                            // low-contrast ladder
+        const r=0.020+i*0.014;
+        o.push(ell(-0.30+0.155*i,0.28,r,r,0,{soft:-1,softHi:1}));
+      }
+      return o;
+    },
+    bgROI:{x:-0.18,y:-0.10,r:0.11}, sigROI:{x:0,y:0.62,r:0.07},
+    mtf:{x:0,y:0,r:0.085}, cupA:{x:-0.16,y:-0.08,r:0.085}, cupB:{x:0.12,y:0.80,r:0.06}
+  },
+
+  thorax: {
+    name:"Thorax — lung + moving nodule",
+    desc:"Aerated lung, ribs and a nodule that moves with the acquisition. Raise motion amplitude and watch the doubling and streaking build up.",
+    fov:400,
+    build(){
+      const o=[];
+      o.push(ell(0,0,0.94,0.70,0,{fat:1}));
+      o.push(ell(0,0,0.88,0.64,0,{fat:-1,soft:1}));
+      o.push(ell(-0.40,0.02,0.32,0.44,8,{soft:-1,lung:1}));
+      o.push(ell(0.40,0.02,0.32,0.44,-8,{soft:-1,lung:1}));
+      o.push(ell(0,-0.40,0.16,0.12,0,{soft:-1,bone:1}));
+      for(let i=0;i<7;i++){                                            // ribs
+        const t=(-70+i*23)*Math.PI/180;
+        o.push(ell(0.86*Math.cos(t),0.62*Math.sin(t),0.045,0.020,(t*180/Math.PI)+90,{soft:-1,bone:1}));
+        o.push(ell(-0.86*Math.cos(t),0.62*Math.sin(t),0.045,0.020,-(t*180/Math.PI)-90,{soft:-1,bone:1}));
+      }
+      o.push(ell(0,0.12,0.15,0.13,0,{soft:-1,muscle:1}));              // mediastinum
+      o.push(ell(-0.42,0.20,0.055,0.055,0,{lung:-1,softHi:1},true));   // moving nodule
+      o.push(ell(0.40,-0.18,0.048,0.048,0,{lung:-1,bone:1},true));     // moving calcified nodule
+      return o;
+    },
+    bgROI:{x:-0.20,y:-0.04,r:0.11}, sigROI:{x:-0.42,y:0.20,r:0.045},
+    mtf:{x:0.40,y:-0.18,r:0.048}, cupA:{x:-0.18,y:-0.04,r:0.085}, cupB:{x:-0.62,y:0.16,r:0.085}
+  }
+};
+
+/* ============================== state ============================== */
+const S = {
+  scen:"head", N:256, nDet:256, nViews:360, aperture:true,
+  detType:"eid", dose:5.5, enoise:30, csFrac:0.12,
+  poly:true, spr:0, ring:0, bad:0, motion:0, seed:7,
+  method:"fbp", filter:"shepp", cutoff:1, iters:12, tvw:0.3, warm:true,
+  denoise:"none", dnStr:1, ww:400, wl:40, showROI:false
+};
+let last = null;   // {gtHU, recHU, sino, meta}
+
+/* ============================== forward projection ============================== */
+// exact Radon transform of an ellipse, accumulated per material
+function forwardProject(objs, nViews, nDet, sMaxCm, sub, motionCm, scale){
+  const nM = MATS.length;
+  const L = new Float32Array(nM*nViews*nDet);
+  const ds = 2*sMaxCm/nDet;
+  const subW = sub>1 ? ds/sub : 0;
+  const offs = [];
+  for(let k=0;k<sub;k++) offs.push(sub===1?0:(-ds/2 + ds*(k+0.5)/sub));
+  const wsub = 1/sub;
+
+  for(let v=0; v<nViews; v++){
+    const th = Math.PI*v/nViews;
+    const ct = Math.cos(th), st = Math.sin(th);
+    // motion displacement for flagged objects (cm), periodic over the scan
+    const mx = motionCm*Math.sin(2*Math.PI*1.5*v/nViews);
+    const my = motionCm*0.5*Math.cos(2*Math.PI*1.5*v/nViews);
+    for(let o=0;o<objs.length;o++){
+      const ob=objs[o];
+      const x0 = ob.x*scale + (ob.move?mx:0);
+      const y0 = ob.y*scale + (ob.move?my:0);
+      const a = ob.a*scale, b = ob.b*scale;
+      const cp = x0*ct + y0*st;                    // ellipse centre projected
+      const thp = th - ob.phi;
+      const cA = Math.cos(thp), sA = Math.sin(thp);
+      const A = a*a*cA*cA + b*b*sA*sA;             // a'^2
+      const rt = Math.sqrt(A);
+      const k2 = 2*a*b/A;
+      const comps = Object.keys(ob.comp);
+      for(let i=0;i<nDet;i++){
+        const sc = -sMaxCm + ds*(i+0.5);
+        let acc = 0;
+        for(let k=0;k<sub;k++){
+          const sp = sc + offs[k] - cp;
+          if(Math.abs(sp) < rt) acc += k2*Math.sqrt(A - sp*sp);
+        }
+        if(acc===0) continue;
+        acc *= wsub;
+        for(let c=0;c<comps.length;c++){
+          const m = comps[c]; if(MI[m]===undefined) continue;
+          L[MI[m]*nViews*nDet + v*nDet + i] += ob.comp[m]*acc;
+        }
+      }
+    }
+  }
+  return L;
+}
+
+/* ============================== detector / noise model ============================== */
+function measure(L, nViews, nDet, cfg){
+  const nM=MATS.length, nvd=nViews*nDet;
+  const p = new Float32Array(nvd);
+  const N0 = Math.pow(10, cfg.dose);
+  const eBins = cfg.poly ? E_BINS.length : 1;
+  const w = cfg.poly ? SPEC_W : [1];
+  const Emean = cfg.poly ? E_BINS.reduce((s,e,i)=>s+e*SPEC_W[i],0) : 70;
+
+  // reference (air) signal
+  let S0=0;
+  for(let e=0;e<eBins;e++){
+    const N = N0*w[e];
+    S0 += cfg.detType==="eid" ? N*(cfg.poly?E_BINS[e]:70) : N;
+  }
+
+  // per-channel gain errors (fixed across views -> rings)
+  const gain = new Float32Array(nDet).fill(1);
+  if(cfg.ring>0) for(let i=0;i<nDet;i++) gain[i] = 1 + (cfg.ring/100)*gauss();
+  for(let k=0;k<cfg.bad;k++){
+    const i = Math.floor(rng()*nDet);
+    gain[i] = 0.55 + 0.25*rng();
+  }
+
+  const cnt = new Float64Array(nDet);      // per-view working buffer
+  const prim = new Float64Array(nDet);     // noise-free primary, for the scatter estimate
+  const scat = new Float64Array(nDet);
+
+  for(let v=0; v<nViews; v++){
+    // 1. transmitted quanta per energy bin, with charge sharing and noise
+    for(let i=0;i<nDet;i++){cnt[i]=0; prim[i]=0;}
+    let primaryMean=0;
+
+    for(let e=0;e<eBins;e++){
+      const Ne = N0*w[e];
+      const Eph = cfg.poly ? E_BINS[e] : 70;
+      const wt = cfg.detType==="eid" ? Eph : 1;
+      // expected transmitted quanta
+      const tmp = new Float64Array(nDet);
+      for(let i=0;i<nDet;i++){
+        let att=0;
+        for(let m=0;m<nM;m++){
+          const l = L[m*nvd + v*nDet + i];
+          if(l!==0) att += (cfg.poly?MU[MATS[m]][e]:MU_EFF[MATS[m]])*l;
+        }
+        tmp[i] = Ne*Math.exp(-att);
+      }
+      // PCD spatial charge sharing between neighbouring pixels
+      if(cfg.detType==="pcd" && cfg.csFrac>0){
+        const f=cfg.csFrac, sm=new Float64Array(nDet);
+        for(let i=0;i<nDet;i++){
+          const lft = tmp[i>0?i-1:0], rgt = tmp[i<nDet-1?i+1:nDet-1];
+          sm[i] = (1-f)*tmp[i] + 0.5*f*(lft+rgt);
+        }
+        tmp.set(sm);
+      }
+      for(let i=0;i<nDet;i++){
+        const n = poisson(tmp[i]*gain[i]);
+        cnt[i] += n*wt;
+        prim[i] += tmp[i]*wt;
+        primaryMean += tmp[i]*wt;
+      }
+    }
+    primaryMean /= nDet;
+
+    // 2. scatter: a low-frequency field, scaled so the mean scatter-to-primary
+    //    ratio inside the object shadow equals the requested SPR
+    if(cfg.spr>0){
+      const sig = Math.max(3, nDet/8), rad = Math.ceil(2.2*sig);
+      let sumP=0, sumS=0, nIn=0;
+      for(let i=0;i<nDet;i++){
+        let acc=0, wsum=0;
+        for(let d=-rad; d<=rad; d++){
+          const w = Math.exp(-d*d/(2*sig*sig));
+          acc += w*prim[clamp(i+d,0,nDet-1)]; wsum += w;
+        }
+        scat[i]=acc/wsum;
+      }
+      for(let i=0;i<nDet;i++){
+        if(prim[i] < 0.85*S0){ sumP += prim[i]; sumS += scat[i]; nIn++; }
+      }
+      const k = (nIn>0 && sumS>1e-9) ? cfg.spr*sumP/sumS : 0;
+      for(let i=0;i<nDet;i++) cnt[i] += k*scat[i];
+    }
+
+    // 3. electronic noise (EID only), then log
+    for(let i=0;i<nDet;i++){
+      if(cfg.detType==="eid" && cfg.enoise>0) cnt[i] += cfg.enoise*Emean*gauss();
+      const ratio = cnt[i]/S0;
+      p[v*nDet+i] = ratio>1e-7 ? -Math.log(ratio) : Math.log(1e7);
+    }
+  }
+  return p;
+}
+
+/* ============================== FFT + ramp filter ============================== */
+function fft(re, im, inv){
+  const n=re.length;
+  for(let i=1,j=0;i<n;i++){
+    let bit=n>>1;
+    for(;j&bit;bit>>=1) j^=bit;
+    j^=bit;
+    if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;}
+  }
+  for(let len=2;len<=n;len<<=1){
+    const ang=2*Math.PI/len*(inv?1:-1);
+    const wr=Math.cos(ang), wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){
+      let cr=1, ci=0;
+      for(let k=0;k<len/2;k++){
+        const ur=re[i+k], ui=im[i+k];
+        const vr=re[i+k+len/2]*cr - im[i+k+len/2]*ci;
+        const vi=re[i+k+len/2]*ci + im[i+k+len/2]*cr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi;
+        re[i+k+len/2]=ur-vr; im[i+k+len/2]=ui-vi;
+        const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr;
+      }
+    }
+  }
+  if(inv) for(let i=0;i<n;i++){re[i]/=n; im[i]/=n;}
+}
+
+function rampFilter(p, nViews, nDet, ds, kind, cutoff){
+  let Np=1; while(Np < 2*nDet) Np<<=1;
+  const re=new Float64Array(Np), im=new Float64Array(Np);
+  const fny = 1/(2*ds);
+  // exact discrete Ram-Lak kernel (Crawford), avoids the DC bias of naive |f| sampling
+  const hr=new Float64Array(Np), hi=new Float64Array(Np);
+  for(let n=0;n<Np;n++){
+    const k = n<=Np/2 ? n : n-Np;
+    if(k===0) hr[n]=1/(4*ds*ds);
+    else if(k%2!==0) hr[n]=-1/(Math.PI*Math.PI*k*k*ds*ds);
+    else hr[n]=0;
+  }
+  fft(hr,hi,false);
+  const H=new Float64Array(Np);
+  for(let k=0;k<Np;k++){
+    const kk = k<=Np/2 ? k : k-Np;
+    const f = Math.abs(kk)/(Np*ds);
+    const x = f/(fny*cutoff);
+    let win=0;
+    if(x<=1){
+      switch(kind){
+        case "ramlak": win=1; break;
+        case "shepp":  win = x<1e-9?1:Math.sin(Math.PI*x/2)/(Math.PI*x/2); break;
+        case "cosine": win = Math.cos(Math.PI*x/2); break;
+        case "hamming":win = 0.54+0.46*Math.cos(Math.PI*x); break;
+        case "hann":   win = 0.5+0.5*Math.cos(Math.PI*x); break;
+      }
+    }
+    H[k]=ds*hr[k]*win;
+  }
+  const out=new Float32Array(nViews*nDet);
+  for(let v=0;v<nViews;v++){
+    re.fill(0); im.fill(0);
+    for(let i=0;i<nDet;i++) re[i]=p[v*nDet+i];
+    // pad by edge extension to soften truncation
+    for(let i=nDet;i<Np;i++) re[i]=0;
+    fft(re,im,false);
+    for(let k=0;k<Np;k++){re[k]*=H[k]; im[k]*=H[k];}
+    fft(re,im,true);
+    for(let i=0;i<nDet;i++) out[v*nDet+i]=re[i];
+  }
+  return out;
+}
+
+/* ============================== back / forward projectors on the grid ============================== */
+function backproject(p, nViews, nDet, N, halfCm, sMaxCm, scalePi){
+  const img=new Float32Array(N*N);
+  const ds=2*sMaxCm/nDet;
+  const px=2*halfCm/N;
+  for(let v=0;v<nViews;v++){
+    const th=Math.PI*v/nViews, ct=Math.cos(th), st=Math.sin(th);
+    const base=v*nDet;
+    for(let iy=0;iy<N;iy++){
+      const y = -halfCm + px*(iy+0.5);
+      const sy = y*st;
+      for(let ix=0;ix<N;ix++){
+        const x = -halfCm + px*(ix+0.5);
+        const s = x*ct + sy;
+        const t = (s + sMaxCm)/ds - 0.5;
+        if(t<0 || t>nDet-1) continue;
+        const i0=t|0, fr=t-i0;
+        const i1 = i0+1<nDet ? i0+1 : i0;
+        img[iy*N+ix] += p[base+i0]*(1-fr) + p[base+i1]*fr;
+      }
+    }
+  }
+  const k = scalePi ? Math.PI/nViews : 1/nViews;
+  for(let i=0;i<img.length;i++) img[i]*=k;
+  return img;
+}
+
+function forwardGrid(img, nViews, nDet, N, halfCm, sMaxCm){
+  // Joseph-style ray marching, matched to backproject()
+  const p=new Float32Array(nViews*nDet);
+  const ds=2*sMaxCm/nDet;
+  const px=2*halfCm/N;
+  const step=px;                       // sample every voxel width
+  const nS=Math.ceil(2*halfCm*1.45/step);
+  for(let v=0;v<nViews;v++){
+    const th=Math.PI*v/nViews, ct=Math.cos(th), st=Math.sin(th);
+    for(let i=0;i<nDet;i++){
+      const s=-sMaxCm+ds*(i+0.5);
+      const x0=s*ct + halfCm*1.45*st, y0=s*st - halfCm*1.45*ct;
+      let sum=0;
+      for(let k=0;k<nS;k++){
+        const x=x0 - st*step*k, y=y0 + ct*step*k;
+        const fx=(x+halfCm)/px-0.5, fy=(y+halfCm)/px-0.5;
+        if(fx<0||fy<0||fx>N-1||fy>N-1) continue;
+        const ix=fx|0, iy=fy|0, dx=fx-ix, dy=fy-iy;
+        const ix1=ix+1<N?ix+1:ix, iy1=iy+1<N?iy+1:iy;
+        sum += (img[iy*N+ix]*(1-dx)+img[iy*N+ix1]*dx)*(1-dy)
+             + (img[iy1*N+ix]*(1-dx)+img[iy1*N+ix1]*dx)*dy;
+      }
+      p[v*nDet+i]=sum*step;
+    }
+  }
+  return p;
+}
+
+// exact adjoint of forwardGrid: same rays, values splatted back with the same weights.
+// SIRT needs a matched pair or it diverges; the pixel-driven backprojector above is for FBP only.
+function backprojectAdj(p, nViews, nDet, N, halfCm, sMaxCm){
+  const img=new Float32Array(N*N);
+  const ds=2*sMaxCm/nDet;
+  const px=2*halfCm/N;
+  const step=px;
+  const nS=Math.ceil(2*halfCm*1.45/step);
+  for(let v=0;v<nViews;v++){
+    const th=Math.PI*v/nViews, ct=Math.cos(th), st=Math.sin(th);
+    for(let i=0;i<nDet;i++){
+      const val=p[v*nDet+i];
+      if(val===0) continue;
+      const vs=val*step;
+      const s=-sMaxCm+ds*(i+0.5);
+      const x0=s*ct + halfCm*1.45*st, y0=s*st - halfCm*1.45*ct;
+      for(let k=0;k<nS;k++){
+        const x=x0 - st*step*k, y=y0 + ct*step*k;
+        const fx=(x+halfCm)/px-0.5, fy=(y+halfCm)/px-0.5;
+        if(fx<0||fy<0||fx>N-1||fy>N-1) continue;
+        const ix=fx|0, iy=fy|0, dx=fx-ix, dy=fy-iy;
+        const ix1=ix+1<N?ix+1:ix, iy1=iy+1<N?iy+1:iy;
+        img[iy*N+ix]  += vs*(1-dx)*(1-dy);
+        img[iy*N+ix1] += vs*dx*(1-dy);
+        img[iy1*N+ix] += vs*(1-dx)*dy;
+        img[iy1*N+ix1]+= vs*dx*dy;
+      }
+    }
+  }
+  return img;
+}
+
+// one explicit descent step on total variation: u += dt * div(∇u/|∇u|_eps).
+// px,py are bounded by 1, so the step is bounded by 4*dt and cannot blow up.
+function tvStep(img,N,dt,eps){
+  const gx=new Float32Array(N*N), gy=new Float32Array(N*N);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const i=y*N+x;
+    const a = x<N-1 ? img[i+1]-img[i] : 0;
+    const b = y<N-1 ? img[i+N]-img[i] : 0;
+    const m = Math.sqrt(a*a+b*b+eps*eps);
+    gx[i]=a/m; gy[i]=b/m;
+  }
+  const out=new Float32Array(N*N);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const i=y*N+x;
+    const dxv = gx[i] - (x>0?gx[i-1]:0);
+    const dyv = gy[i] - (y>0?gy[i-N]:0);
+    out[i]=img[i] + dt*(dxv+dyv);
+  }
+  return out;
+}
+
+/* ============================== denoisers ============================== */
+function gaussianBlur(img,N,sigma){
+  const rad=Math.max(1,Math.ceil(sigma*2.5));
+  const k=[]; let sum=0;
+  for(let i=-rad;i<=rad;i++){const w=Math.exp(-i*i/(2*sigma*sigma));k.push(w);sum+=w;}
+  for(let i=0;i<k.length;i++)k[i]/=sum;
+  const tmp=new Float32Array(img.length), out=new Float32Array(img.length);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    let s=0; for(let i=-rad;i<=rad;i++) s+=k[i+rad]*img[y*N+clamp(x+i,0,N-1)];
+    tmp[y*N+x]=s;
+  }
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    let s=0; for(let i=-rad;i<=rad;i++) s+=k[i+rad]*tmp[clamp(y+i,0,N-1)*N+x];
+    out[y*N+x]=s;
+  }
+  return out;
+}
+function medianFilter(img,N){
+  const out=new Float32Array(img.length), w=new Array(9);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    let n=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++) w[n++]=img[clamp(y+dy,0,N-1)*N+clamp(x+dx,0,N-1)];
+    w.sort((a,b)=>a-b);
+    out[y*N+x]=w[4];
+  }
+  return out;
+}
+function bilateral(img,N,sigmaS,sigmaR){
+  const rad=Math.max(1,Math.round(sigmaS*2));
+  const out=new Float32Array(img.length);
+  const sg=[]; for(let d=-rad;d<=rad;d++) sg.push(Math.exp(-d*d/(2*sigmaS*sigmaS)));
+  const inv2r=1/(2*sigmaR*sigmaR);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const c=img[y*N+x]; let acc=0,wsum=0;
+    for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
+      const v=img[clamp(y+dy,0,N-1)*N+clamp(x+dx,0,N-1)];
+      const dv=v-c;
+      const w=sg[dy+rad]*sg[dx+rad]*Math.exp(-dv*dv*inv2r);
+      acc+=w*v; wsum+=w;
+    }
+    out[y*N+x]=acc/wsum;
+  }
+  return out;
+}
+function tvDenoise(img,N,dt,iters){
+  let cur=Float32Array.from(img);
+  for(let it=0;it<iters;it++) cur=tvStep(cur,N,dt,12);   // eps = 12 HU: below this a gradient counts as noise
+  return cur;
+}
+function nlm(img,N,h,searchR,patchR){
+  const out=new Float32Array(img.length);
+  const inv=1/(h*h);
+  const P=(2*patchR+1)*(2*patchR+1);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    let acc=0,wsum=0,wmax=0;
+    for(let dy=-searchR;dy<=searchR;dy++)for(let dx=-searchR;dx<=searchR;dx++){
+      if(dx===0&&dy===0) continue;
+      const ny=y+dy, nx=x+dx;
+      if(ny<0||nx<0||ny>=N||nx>=N) continue;
+      let d2=0;
+      for(let py=-patchR;py<=patchR;py++)for(let px=-patchR;px<=patchR;px++){
+        const a=img[clamp(y+py,0,N-1)*N+clamp(x+px,0,N-1)];
+        const b=img[clamp(ny+py,0,N-1)*N+clamp(nx+px,0,N-1)];
+        d2+=(a-b)*(a-b);
+      }
+      const w=Math.exp(-Math.max(0,d2/P)*inv);
+      if(w>wmax)wmax=w;
+      acc+=w*img[ny*N+nx]; wsum+=w;
+    }
+    acc+=wmax*img[y*N+x]; wsum+=wmax;
+    out[y*N+x]=wsum>0?acc/wsum:img[y*N+x];
+  }
+  return out;
+}
+
+/* ============================== metrics ============================== */
+function roiStats(img,N,halfCm,roi,scaleCm){
+  const px=2*halfCm/N;
+  const cx=roi.x*scaleCm, cy=roi.y*scaleCm, r=roi.r*scaleCm;
+  let s=0,s2=0,n=0;
+  for(let iy=0;iy<N;iy++){
+    const y=-halfCm+px*(iy+0.5);
+    for(let ix=0;ix<N;ix++){
+      const x=-halfCm+px*(ix+0.5);
+      if((x-cx)*(x-cx)+(y-cy)*(y-cy) <= r*r){ const v=img[iy*N+ix]; s+=v; s2+=v*v; n++; }
+    }
+  }
+  if(n<2) return {mean:0,sd:0,n:0};
+  const m=s/n;
+  return {mean:m, sd:Math.sqrt(Math.max(0,s2/n-m*m)), n};
+}
+// structural similarity over the patient region. HU are mapped to [0,1] first:
+// SSIM's luminance term is undefined on a scale where water sits at zero.
+function ssim(a,b,N){
+  const norm=v=>clamp((v+1000)/2000,0,1);
+  const C1=0.01*0.01, C2=0.03*0.03, win=4;
+  let tot=0,cnt=0;
+  for(let y=win;y<N-win;y+=3)for(let x=win;x<N-win;x+=3){
+    if(a[y*N+x] < -900) continue;
+    let ma=0,mb=0,n=0;
+    for(let dy=-win;dy<=win;dy++)for(let dx=-win;dx<=win;dx++){
+      ma+=norm(a[(y+dy)*N+x+dx]); mb+=norm(b[(y+dy)*N+x+dx]); n++;
+    }
+    ma/=n; mb/=n;
+    let va=0,vb=0,cov=0;
+    for(let dy=-win;dy<=win;dy++)for(let dx=-win;dx<=win;dx++){
+      const da=norm(a[(y+dy)*N+x+dx])-ma, db=norm(b[(y+dy)*N+x+dx])-mb;
+      va+=da*da; vb+=db*db; cov+=da*db;
+    }
+    va/=n-1; vb/=n-1; cov/=n-1;
+    tot += ((2*ma*mb+C1)*(2*cov+C2))/((ma*ma+mb*mb+C1)*(va+vb+C2));
+    cnt++;
+  }
+  return cnt? tot/cnt : 0;
+}
+function edgeMTF(img,N,halfCm,disk,scaleCm){
+  const px=2*halfCm/N;
+  const cx=disk.x*scaleCm, cy=disk.y*scaleCm, R=disk.r*scaleCm;
+  const binW=px/4, nb=Math.round((R*1.9)/binW);
+  const sum=new Float64Array(nb), cnt=new Float64Array(nb);
+  const rmin=R*0.15;
+  for(let iy=0;iy<N;iy++){
+    const y=-halfCm+px*(iy+0.5);
+    for(let ix=0;ix<N;ix++){
+      const x=-halfCm+px*(ix+0.5);
+      const d=Math.hypot(x-cx,y-cy);
+      if(d<rmin || d>R*1.9) continue;
+      const b=Math.floor((d-rmin)/binW);
+      if(b>=0&&b<nb){sum[b]+=img[iy*N+ix];cnt[b]++;}
+    }
+  }
+  const esf=[]; for(let b=0;b<nb;b++) if(cnt[b]>0) esf.push(sum[b]/cnt[b]); else esf.push(esf.length?esf[esf.length-1]:0);
+  const lsf=new Float64Array(esf.length-1);
+  for(let i=0;i<lsf.length;i++) lsf[i]=esf[i+1]-esf[i];
+  // hann-taper then DFT
+  const M=lsf.length;
+  let norm=0; for(let i=0;i<M;i++){lsf[i]*= 0.5-0.5*Math.cos(2*Math.PI*i/(M-1)); norm+=lsf[i];}
+  if(Math.abs(norm)<1e-12) return null;
+  const nf=48, mtf=[], freq=[];
+  const dx=binW;   // cm
+  for(let k=0;k<nf;k++){
+    const f=k*(1/(2*dx))/(nf-1);   // cycles/cm up to Nyquist of the oversampled ESF
+    let re=0,im=0;
+    for(let i=0;i<M;i++){const ph=2*Math.PI*f*i*dx; re+=lsf[i]*Math.cos(ph); im-=lsf[i]*Math.sin(ph);}
+    mtf.push(Math.hypot(re,im)/Math.abs(norm)); freq.push(f/10);   // lp/mm
+  }
+  const m0=mtf[0]||1; for(let i=0;i<mtf.length;i++) mtf[i]/=m0;
+  let f50=null,f10=null;
+  for(let i=1;i<mtf.length;i++){
+    if(f50===null && mtf[i]<0.5) f50 = freq[i-1]+(freq[i]-freq[i-1])*(mtf[i-1]-0.5)/(mtf[i-1]-mtf[i]);
+    if(f10===null && mtf[i]<0.1) f10 = freq[i-1]+(freq[i]-freq[i-1])*(mtf[i-1]-0.1)/(mtf[i-1]-mtf[i]);
+  }
+  return {freq,mtf,f50,f10};
+}
+function npsRadial(img,N,halfCm,roi,scaleCm){
+  const px=2*halfCm/N;
+  const cx=roi.x*scaleCm, cy=roi.y*scaleCm;
+  let M=1; while(M*2 <= Math.floor(2*roi.r*scaleCm/px/1.15)) M*=2;
+  if(M<16) return null;
+  const ix0=Math.round((cx-M*px/2+halfCm)/px), iy0=Math.round((cy-M*px/2+halfCm)/px);
+  if(ix0<0||iy0<0||ix0+M>N||iy0+M>N) return null;
+  const re=[],im=[];
+  let mean=0;
+  const buf=new Float64Array(M*M);
+  for(let y=0;y<M;y++)for(let x=0;x<M;x++){const v=img[(iy0+y)*N+ix0+x];buf[y*M+x]=v;mean+=v;}
+  mean/=M*M;
+  for(let y=0;y<M;y++){re.push(new Float64Array(M));im.push(new Float64Array(M));
+    for(let x=0;x<M;x++) re[y][x]=buf[y*M+x]-mean;}
+  for(let y=0;y<M;y++) fft(re[y],im[y],false);
+  const cr=new Float64Array(M), ci=new Float64Array(M);
+  for(let x=0;x<M;x++){
+    for(let y=0;y<M;y++){cr[y]=re[y][x];ci[y]=im[y][x];}
+    fft(cr,ci,false);
+    for(let y=0;y<M;y++){re[y][x]=cr[y];im[y][x]=ci[y];}
+  }
+  const nb=Math.floor(M/2), sum=new Float64Array(nb), cnt=new Float64Array(nb);
+  const df=1/(M*px);
+  for(let y=0;y<M;y++)for(let x=0;x<M;x++){
+    const ky=y<M/2?y:y-M, kx=x<M/2?x:x-M;
+    const r=Math.round(Math.hypot(kx,ky));
+    if(r<nb){sum[r]+=(re[y][x]**2+im[y][x]**2)*px*px/(M*M); cnt[r]++;}
+  }
+  const freq=[],val=[];
+  for(let r=1;r<nb;r++) if(cnt[r]>0){freq.push(r*df/10); val.push(sum[r]/cnt[r]);}
+  let peak=0, area=0, wsum=0;
+  for(let i=0;i<val.length;i++){ if(val[i]>val[peak])peak=i; area+=val[i]*freq[i]; wsum+=val[i]; }
+  return {freq,val,peakF:freq[peak], meanF: wsum>0?area/wsum:0};
+}
+
+/* ============================== rendering ============================== */
+function windowToRGB(hu,wl,ww){
+  const lo=wl-ww/2, hi=wl+ww/2;
+  let t=(hu-lo)/(hi-lo);
+  t=clamp(t,0,1);
+  return (t*255)|0;
+}
+// rows are flipped on display so +y points up, as on a real console
+function drawHU(canvas,img,N,wl,ww){
+  canvas.width=N; canvas.height=N;
+  const ctx=canvas.getContext("2d");
+  const d=ctx.createImageData(N,N);
+  for(let y=0;y<N;y++){
+    const src=(N-1-y)*N;
+    for(let x=0;x<N;x++){
+      const g=windowToRGB(img[src+x],wl,ww), i=y*N+x;
+      d.data[i*4]=g; d.data[i*4+1]=g; d.data[i*4+2]=g; d.data[i*4+3]=255;
+    }
+  }
+  ctx.putImageData(d,0,0);
+}
+function drawSino(canvas,p,nViews,nDet){
+  canvas.width=nDet; canvas.height=nViews;
+  const ctx=canvas.getContext("2d");
+  const d=ctx.createImageData(nDet,nViews);
+  let mn=Infinity,mx=-Infinity;
+  for(let i=0;i<p.length;i++){if(p[i]<mn)mn=p[i];if(p[i]>mx)mx=p[i];}
+  const rgv=(mx-mn)||1;
+  for(let i=0;i<p.length;i++){
+    const t=clamp((p[i]-mn)/rgv,0,1);
+    // amber-tinted ramp so the sinogram reads as raw data, not an image
+    d.data[i*4]  = (255*Math.pow(t,0.85))|0;
+    d.data[i*4+1]= (215*Math.pow(t,1.15))|0;
+    d.data[i*4+2]= (150*Math.pow(t,1.7))|0;
+    d.data[i*4+3]=255;
+  }
+  ctx.putImageData(d,0,0);
+}
+function drawErr(canvas,a,b,N,range){
+  canvas.width=N; canvas.height=N;
+  const ctx=canvas.getContext("2d");
+  const d=ctx.createImageData(N,N);
+  for(let y=0;y<N;y++){
+    const src=(N-1-y)*N;
+    for(let x=0;x<N;x++){
+      const e=clamp((a[src+x]-b[src+x])/range,-1,1), i=y*N+x;
+      let r,g,bl;
+      if(e>=0){ r=26+(229-26)*e; g=37+(101-37)*e; bl=48+(75-48)*e; }
+      else    { const t=-e; r=26+(74-26)*t; g=37+(118-37)*t; bl=48+(200-48)*t; }
+      d.data[i*4]=r|0; d.data[i*4+1]=g|0; d.data[i*4+2]=bl|0; d.data[i*4+3]=255;
+    }
+  }
+  ctx.putImageData(d,0,0);
+}
+function overlayROIs(canvas,N,halfCm,sc,scen){
+  const ctx=canvas.getContext("2d");
+  const px=2*halfCm/N;
+  const mark=(roi,col)=>{
+    ctx.strokeStyle=col; ctx.lineWidth=Math.max(0.6,N/400);
+    ctx.beginPath();
+    ctx.arc((roi.x*sc+halfCm)/px, N-1-(roi.y*sc+halfCm)/px, roi.r*sc/px, 0, 2*Math.PI);
+    ctx.stroke();
+  };
+  mark(scen.bgROI,"#5cc9e0"); mark(scen.sigROI,"#f2a93b"); mark(scen.mtf,"#7fd18a");
+}
+
+/* ---- vector plots ---- */
+function plotAxes(ctx,W,H,pad,xlab,ylab){
+  ctx.fillStyle="#141d23"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="#233039"; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad,8); ctx.lineTo(pad,H-pad); ctx.lineTo(W-10,H-pad); ctx.stroke();
+  ctx.fillStyle="#4d6270"; ctx.font="10px ui-monospace,monospace";
+  ctx.fillText(xlab,W-10-ctx.measureText(xlab).width,H-8);
+  ctx.save(); ctx.translate(11,20); ctx.fillText(ylab,0,0); ctx.restore();
+}
+function drawProfile(canvas,gt,rec,N,fov){
+  const W=canvas.width,H=canvas.height,pad=42;
+  const ctx=canvas.getContext("2d");
+  plotAxes(ctx,W,H,pad,"mm","HU");
+  const row=(N>>1)*N;
+  let mn=Infinity,mx=-Infinity;
+  for(let i=0;i<N;i++){const a=gt[row+i],b=rec[row+i];mn=Math.min(mn,a,b);mx=Math.max(mx,a,b);}
+  mn=Math.max(mn,-1100); mx=Math.min(mx,3200);
+  const span=(mx-mn)||1;
+  const X=i=>pad+(W-pad-14)*i/(N-1);
+  const Y=v=>H-pad-(H-pad-14)*(clamp(v,mn,mx)-mn)/span;
+  ctx.strokeStyle="#2b3b46"; ctx.setLineDash([2,3]);
+  [0,-1000].forEach(hu=>{if(hu>=mn&&hu<=mx){ctx.beginPath();ctx.moveTo(pad,Y(hu));ctx.lineTo(W-14,Y(hu));ctx.stroke();}});
+  ctx.setLineDash([]);
+  ctx.strokeStyle="#5cc9e0"; ctx.lineWidth=1.4; ctx.beginPath();
+  for(let i=0;i<N;i++){const x=X(i),y=Y(gt[row+i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.stroke();
+  ctx.strokeStyle="#f2a93b"; ctx.lineWidth=1.2; ctx.beginPath();
+  for(let i=0;i<N;i++){const x=X(i),y=Y(rec[row+i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.stroke();
+  ctx.fillStyle="#4d6270"; ctx.font="10px ui-monospace,monospace";
+  ctx.fillText(Math.round(mx)+"", 6, 18); ctx.fillText(Math.round(mn)+"", 6, H-pad);
+  ctx.fillStyle="#5cc9e0"; ctx.fillText("truth", pad+6, 18);
+  ctx.fillStyle="#f2a93b"; ctx.fillText("measured", pad+50, 18);
+  ctx.fillStyle="#4d6270";
+  ctx.fillText("−"+(fov/2).toFixed(0), pad, H-pad+14);
+  ctx.fillText("+"+(fov/2).toFixed(0), W-38, H-pad+14);
+}
+function drawMTF(canvas,m,nyq){
+  const W=canvas.width,H=canvas.height,pad=42;
+  const ctx=canvas.getContext("2d");
+  plotAxes(ctx,W,H,pad,"lp/mm","MTF");
+  if(!m){ctx.fillStyle="#4d6270";ctx.font="11px ui-monospace,monospace";ctx.fillText("no edge available",pad+20,H/2);return;}
+  const fmax=Math.max(nyq*1.15,0.2);
+  const X=f=>pad+(W-pad-14)*clamp(f/fmax,0,1);
+  const Y=v=>H-pad-(H-pad-14)*clamp(v,0,1.05)/1.05;
+  ctx.strokeStyle="#2b3b46"; ctx.setLineDash([2,3]);
+  [0.5,0.1].forEach(v=>{ctx.beginPath();ctx.moveTo(pad,Y(v));ctx.lineTo(W-14,Y(v));ctx.stroke();});
+  ctx.setLineDash([]);
+  ctx.strokeStyle="#7fd18a"; ctx.lineWidth=1.6; ctx.beginPath();
+  let started=false;
+  m.freq.forEach((f,i)=>{
+    if(f>fmax) return;
+    const x=X(f),y=Y(m.mtf[i]);
+    started?ctx.lineTo(x,y):ctx.moveTo(x,y); started=true;
+  });
+  ctx.stroke();
+  ctx.strokeStyle="#e5654b"; ctx.setLineDash([4,3]); ctx.beginPath();
+  ctx.moveTo(X(nyq),12); ctx.lineTo(X(nyq),H-pad); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle="#e5654b"; ctx.font="10px ui-monospace,monospace";
+  ctx.fillText("voxel Nyquist", X(nyq)+4, 20);
+  ctx.fillStyle="#4d6270";
+  ctx.fillText("1.0",8,18); ctx.fillText("0",8,H-pad);
+  ctx.fillText("0",pad-3,H-pad+14); ctx.fillText(fmax.toFixed(2),W-40,H-pad+14);
+}
+function drawNPS(canvas,n){
+  const W=canvas.width,H=canvas.height,pad=48;
+  const ctx=canvas.getContext("2d");
+  plotAxes(ctx,W,H,pad,"lp/mm","HU²·mm²");
+  if(!n||!n.val.length){ctx.fillStyle="#4d6270";ctx.font="11px ui-monospace,monospace";ctx.fillText("ROI too small for NPS",pad+16,H/2);return;}
+  const mx=Math.max(...n.val)||1, fmax=Math.max(...n.freq)||1;
+  const X=f=>pad+(W-pad-14)*f/fmax;
+  const Y=v=>H-pad-(H-pad-14)*clamp(v/mx,0,1);
+  ctx.fillStyle="rgba(92,201,224,0.14)";
+  ctx.beginPath(); ctx.moveTo(X(n.freq[0]),H-pad);
+  n.freq.forEach((f,i)=>ctx.lineTo(X(f),Y(n.val[i])));
+  ctx.lineTo(X(n.freq[n.freq.length-1]),H-pad); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle="#5cc9e0"; ctx.lineWidth=1.5; ctx.beginPath();
+  n.freq.forEach((f,i)=>{const x=X(f),y=Y(n.val[i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.stroke();
+  ctx.strokeStyle="#f2a93b"; ctx.setLineDash([3,3]); ctx.beginPath();
+  ctx.moveTo(X(n.meanF),14); ctx.lineTo(X(n.meanF),H-pad); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle="#f2a93b"; ctx.font="10px ui-monospace,monospace";
+  ctx.fillText("f̄ = "+n.meanF.toFixed(2), X(n.meanF)+4, 22);
+  ctx.fillStyle="#4d6270";
+  ctx.fillText(mx.toExponential(1),6,18);
+  ctx.fillText("0",pad-3,H-pad+14); ctx.fillText(fmax.toFixed(2),W-40,H-pad+14);
+}
+
+/* ============================== the run ============================== */
+let running=false;
+async function progress(txt,frac){
+  $("status").textContent=txt;
+  $("pbar").style.width=(frac*100).toFixed(0)+"%";
+  await nextFrame();
+}
+
+async function run(){
+  if(running) return;
+  running=true; $("run").disabled=true;
+  const t0=performance.now();
+  try{
+    rng = mulberry32(S.seed);
+    const scen=SCENARIOS[S.scen];
+    const objs=scen.build();
+    const fov=scen.fov;                       // mm
+    const halfCm=fov/20;                      // half FOV in cm  (= unit radius)
+    const sMaxCm=halfCm*1.05;                 // detector spans slightly more than the FOV
+    const N=S.N, nDet=S.nDet, nViews=S.nViews;
+
+    await progress("rasterizing ground truth…",0.05);
+    const gtHU=new Float32Array(N*N);
+    {
+      const px=2*halfCm/N;
+      for(let iy=0;iy<N;iy++){
+        const y=(-halfCm+px*(iy+0.5))/halfCm;
+        for(let ix=0;ix<N;ix++){
+          const x=(-halfCm+px*(ix+0.5))/halfCm;
+          let mu=0;
+          for(const ob of objs){
+            const dx=x-ob.x, dy=y-ob.y;
+            const c=Math.cos(ob.phi), s=Math.sin(ob.phi);
+            const u=(dx*c+dy*s)/ob.a, v=(-dx*s+dy*c)/ob.b;
+            if(u*u+v*v<=1) for(const m in ob.comp) if(MU_EFF[m]!==undefined) mu+=ob.comp[m]*MU_EFF[m];
+          }
+          gtHU[iy*N+ix]= mu<=1e-6 ? -1000 : toHU(mu);
+        }
+      }
+    }
+    drawHU($("cGT"),gtHU,N,S.wl,S.ww);
+    if(S.showROI) overlayROIs($("cGT"),N,halfCm,halfCm,scen);
+
+    await progress("forward projecting…",0.15);
+    const L=forwardProject(objs,nViews,nDet,sMaxCm,S.aperture?3:1,S.motion/10,halfCm);
+
+    await progress("detecting quanta…",0.3);
+    const sino=measure(L,nViews,nDet,S);
+    drawSino($("cSino"),sino,nViews,nDet);
+    $("capSino").textContent=nViews+" × "+nDet;
+
+    let rec;
+    const ds=2*sMaxCm/nDet;
+    if(S.method==="fbp"||S.method==="bp"||((S.method==="sirt"||S.method==="sirttv")&&S.warm)){
+      await progress("filtering & backprojecting…",0.45);
+      const use = S.method==="bp" ? sino : rampFilter(sino,nViews,nDet,ds,S.filter,S.cutoff);
+      rec = backproject(use,nViews,nDet,N,halfCm,sMaxCm,S.method!=="bp");
+      if(S.method==="bp"){ // scale unfiltered BP so soft tissue lands near its true level
+        const st=roiStats(rec,N,halfCm,scen.bgROI,halfCm);
+        const target=fromHU(0);
+        if(st.mean>1e-6) for(let i=0;i<rec.length;i++) rec[i]*= target/st.mean;
+      }
+    }
+    if(S.method==="sirt"||S.method==="sirttv"){
+      if(!rec) rec=new Float32Array(N*N);
+      const ones=new Float32Array(N*N).fill(1);
+      const A1=forwardGrid(ones,nViews,nDet,N,halfCm,sMaxCm);
+      const onesP=new Float32Array(nViews*nDet).fill(1);
+      const AT1=backprojectAdj(onesP,nViews,nDet,N,halfCm,sMaxCm);
+      for(let i=0;i<A1.length;i++) if(A1[i]<1e-6) A1[i]=1e-6;
+      for(let i=0;i<AT1.length;i++) if(AT1[i]<1e-6) AT1[i]=1e-6;
+      const lam=1.0;
+      // TV step size in water-normalized units: 1.0 = 1000 HU
+      const tvDt=S.tvw*0.004, tvEps=0.012;
+      for(let it=0; it<S.iters; it++){
+        await progress("SIRT iteration "+(it+1)+" / "+S.iters,0.45+0.4*it/S.iters);
+        const Ax=forwardGrid(rec,nViews,nDet,N,halfCm,sMaxCm);
+        const resid=new Float32Array(nViews*nDet);
+        for(let i=0;i<resid.length;i++) resid[i]=(sino[i]-Ax[i])/A1[i];
+        const corr=backprojectAdj(resid,nViews,nDet,N,halfCm,sMaxCm);
+        for(let i=0;i<rec.length;i++) rec[i]+= lam*corr[i]/AT1[i];
+        if(S.method==="sirttv" && S.tvw>0){
+          const y=new Float32Array(rec.length);
+          for(let i=0;i<rec.length;i++) y[i]=rec[i]/MU_WATER;
+          let z=tvStep(y,N,tvDt,tvEps); z=tvStep(z,N,tvDt,tvEps);
+          for(let i=0;i<rec.length;i++) rec[i]=z[i]*MU_WATER;
+        }
+      }
+    }
+
+    await progress("converting to HU…",0.88);
+    const recHU=new Float32Array(N*N);
+    for(let i=0;i<N*N;i++) recHU[i]=toHU(rec[i]);
+
+    let outHU=recHU;
+    if(S.denoise!=="none"){
+      await progress("denoising ("+S.denoise+")…",0.92);
+      const k=S.dnStr;
+      if(S.denoise==="gauss")     outHU=gaussianBlur(recHU,N,0.8*k);
+      else if(S.denoise==="median") { outHU=medianFilter(recHU,N); if(k>1.6) outHU=medianFilter(outHU,N); }
+      else if(S.denoise==="bilateral") outHU=bilateral(recHU,N,1.4*k,45*k);
+      else if(S.denoise==="tv")   outHU=tvDenoise(recHU,N,3.0*k,22);
+      else if(S.denoise==="nlm")  outHU=nlm(recHU,N,28*k, N>256?3:5, 1);
+    }
+
+    await progress("measuring…",0.96);
+    const sc=halfCm;
+    const bg=roiStats(outHU,N,halfCm,scen.bgROI,sc);
+    const sig=roiStats(outHU,N,halfCm,scen.sigROI,sc);
+    const cA=roiStats(outHU,N,halfCm,scen.cupA,sc);
+    const cB=roiStats(outHU,N,halfCm,scen.cupB,sc);
+    let se=0, nIn=0;
+    for(let i=0;i<N*N;i++){
+      if(gtHU[i] < -900) continue;              // ignore air outside the patient
+      const d=outHU[i]-gtHU[i]; se+=d*d; nIn++;
+    }
+    const rmse=Math.sqrt(se/Math.max(1,nIn));
+    const psnr=20*Math.log10(2000/Math.max(rmse,1e-6));
+    const ss=ssim(gtHU,outHU,N);
+    const mtf=edgeMTF(outHU,N,halfCm,scen.mtf,sc);
+    const nps=npsRadial(outHU,N,halfCm,scen.bgROI,sc);
+    const cnr=bg.sd>1e-6 ? Math.abs(sig.mean-bg.mean)/bg.sd : 0;
+    const voxel=fov/N;
+    const nyq=1/(2*voxel);          // lp/mm from voxel size
+    const gtBg=roiStats(gtHU,N,halfCm,scen.bgROI,sc);
+
+    drawHU($("cRec"),outHU,N,S.wl,S.ww);
+    if(S.showROI) overlayROIs($("cRec"),N,halfCm,sc,scen);
+    drawErr($("cErr"),outHU,gtHU,N,250);
+    drawProfile($("cProf"),gtHU,outHU,N,fov);
+    drawMTF($("cMTF"),mtf,nyq);
+    drawNPS($("cNPS"),nps);
+    $("capRec").textContent = S.method.toUpperCase()+" · "+voxel.toFixed(2)+" mm";
+    $("capGT").textContent = "70 keV · "+fov+" mm FOV";
+
+    const dt=(performance.now()-t0)/1000;
+    const mets=[
+      ["Voxel size", voxel.toFixed(2), "mm", ""],
+      ["Noise σ", bg.sd.toFixed(1), "HU", bg.sd<12?"good":bg.sd<35?"warn":"bad"],
+      ["CNR", cnr.toFixed(2), "", cnr>5?"good":cnr>2?"warn":"bad"],
+      ["HU accuracy", (bg.mean-gtBg.mean>=0?"+":"")+(bg.mean-gtBg.mean).toFixed(1), "HU", Math.abs(bg.mean-gtBg.mean)<10?"good":Math.abs(bg.mean-gtBg.mean)<40?"warn":"bad"],
+      ["Cupping", (cA.mean-cB.mean).toFixed(1), "HU", Math.abs(cA.mean-cB.mean)<10?"good":Math.abs(cA.mean-cB.mean)<40?"warn":"bad"],
+      ["RMSE", rmse.toFixed(1), "HU", rmse<60?"good":rmse<120?"warn":"bad"],
+      ["PSNR", psnr.toFixed(1), "dB", ""],
+      ["SSIM", ss.toFixed(3), "", ss>0.85?"good":ss>0.65?"warn":"bad"],
+      ["MTF 50%", mtf&&mtf.f50?mtf.f50.toFixed(2):"—", "lp/mm", ""],
+      ["MTF 10%", mtf&&mtf.f10?mtf.f10.toFixed(2):"—", "lp/mm", ""],
+      ["Noise texture f̄", nps?nps.meanF.toFixed(2):"—", "lp/mm", ""],
+      ["Compute", dt.toFixed(1), "s", ""]
+    ];
+    $("metrics").innerHTML = mets.map(([k,v,u,cls])=>
+      `<div class="metric ${cls}"><div class="k">${k}</div><div class="v">${v}${u?`<small>${u}</small>`:""}</div></div>`
+    ).join("");
+
+    last={img:outHU,N,metrics:{noise:bg.sd,cnr,rmse,ssim:ss,f50:mtf&&mtf.f50?mtf.f50:null,voxel},label:describe()};
+    await progress("done · "+dt.toFixed(1)+" s",1);
+    setTimeout(()=>{$("pbar").style.width="0%";},900);
+  }catch(err){
+    $("status").textContent="failed: "+err.message;
+    console.error(err);
+  }finally{
+    running=false; $("run").disabled=false;
+  }
+}
+
+function describe(){
+  const scen=SCENARIOS[S.scen];
+  const bits=[
+    S.method==="fbp" ? "FBP "+S.filter+(S.cutoff<1?" ×"+S.cutoff.toFixed(2):"")
+      : S.method==="bp" ? "unfiltered BP"
+      : (S.method==="sirttv"?"SIRT+TV ":"SIRT ")+S.iters+"it",
+    S.N+"² · "+(scen.fov/S.N).toFixed(2)+"mm",
+    S.nViews+" views · "+S.nDet+"det",
+    S.detType.toUpperCase()+" · 10^"+S.dose.toFixed(1)+" quanta",
+    S.poly?"poly":"mono"
+  ];
+  if(S.spr>0) bits.push("SPR "+S.spr.toFixed(2));
+  if(S.ring>0) bits.push("gain "+S.ring.toFixed(2)+"%");
+  if(S.motion>0) bits.push("motion "+S.motion.toFixed(1)+"mm");
+  if(S.denoise!=="none") bits.push(S.denoise+" ×"+S.dnStr.toFixed(2));
+  return bits.join(" · ");
+}
+
+/* ============================== pinning ============================== */
+const pins=[];
+function addPin(){
+  if(!last){$("status").textContent="run a scan first";return;}
+  pins.push(last);
+  renderPins();
+}
+function renderPins(){
+  const host=$("pins");
+  if(!pins.length){host.innerHTML='<div style="color:var(--faint);font-family:var(--mono);font-size:12px">Pin a result to hold it here while you change one parameter at a time.</div>';return;}
+  host.innerHTML="";
+  pins.forEach((p,idx)=>{
+    const div=document.createElement("div");
+    div.className="pin";
+    const c=document.createElement("canvas");
+    drawHU(c,p.img,p.N,S.wl,S.ww);
+    div.appendChild(c);
+    const t=document.createElement("div"); t.className="t"; t.textContent=p.label; div.appendChild(t);
+    const m=document.createElement("div"); m.className="m";
+    m.innerHTML=`σ <b>${p.metrics.noise.toFixed(1)}</b> HU · CNR <b>${p.metrics.cnr.toFixed(2)}</b><br>`
+      +`RMSE <b>${p.metrics.rmse.toFixed(1)}</b> · SSIM <b>${p.metrics.ssim.toFixed(3)}</b><br>`
+      +`MTF50 <b>${p.metrics.f50?p.metrics.f50.toFixed(2):"—"}</b> lp/mm`;
+    div.appendChild(m);
+    const b=document.createElement("button"); b.textContent="remove";
+    b.onclick=()=>{pins.splice(idx,1);renderPins();};
+    div.appendChild(b);
+    host.appendChild(div);
+  });
+}
+
+/* ============================== UI wiring ============================== */
+function seg(id,key,fmt){
+  const host=$(id);
+  host.querySelectorAll("button").forEach(b=>{
+    b.onclick=()=>{
+      const v=b.dataset.v;
+      S[key]= isNaN(+v)? v : +v;
+      host.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", x===b));
+      if(fmt) fmt();
+      syncDerived();
+    };
+    if(String(S[key])===b.dataset.v) b.setAttribute("aria-pressed",true);
+  });
+}
+function syncDerived(){
+  const fov=SCENARIOS[S.scen].fov;
+  $("vVox").textContent=(fov/S.N).toFixed(2)+" mm";
+  $("vPitch").textContent=(fov*1.05/S.nDet).toFixed(2)+" mm pitch";
+  $("vViews").textContent=(180/S.nViews).toFixed(2)+"°/view";
+  $("vDose").textContent="10^"+S.dose.toFixed(1);
+  $("vEn").textContent=S.enoise+" quanta eq.";
+  $("vCS").textContent=(S.csFrac*100).toFixed(0)+" %";
+  $("vSpr").textContent=S.spr.toFixed(2);
+  $("vRing").textContent=S.ring.toFixed(2)+" %";
+  $("vBad").textContent=S.bad;
+  $("vMot").textContent=S.motion.toFixed(2)+" mm";
+  $("vCut").textContent=S.cutoff.toFixed(2)+" × Nyq";
+  $("vIter").textContent=S.iters;
+  $("vTV").textContent=S.tvw.toFixed(2);
+  $("vDn").textContent=S.dnStr.toFixed(2);
+  $("vWW").textContent=S.ww;
+  $("vWL").textContent=S.wl;
+  const iter = S.method==="sirt"||S.method==="sirttv";
+  $("rowIter").hidden=!iter; $("rowWarm").hidden=!iter;
+  $("rowTV").hidden = S.method!=="sirttv";
+  $("rowFilter").hidden = S.method==="bp";
+  $("rowCut").hidden = S.method==="bp"||iter&&!S.warm;
+  $("rowEnoise").hidden = S.detType!=="eid";
+  $("rowCS").hidden = S.detType!=="pcd";
+  $("roiLegend").hidden = !S.showROI;
+}
+function slider(id,key,post){
+  const el=$(id);
+  el.value=S[key];
+  el.oninput=()=>{S[key]=+el.value; syncDerived(); if(post)post();};
+}
+
+(function init(){
+  const sel=$("scenario");
+  Object.keys(SCENARIOS).forEach(k=>{
+    const o=document.createElement("option"); o.value=k; o.textContent=SCENARIOS[k].name; sel.appendChild(o);
+  });
+  sel.value=S.scen;
+  const setDesc=()=>{$("sceneDesc").textContent=SCENARIOS[S.scen].desc;};
+  sel.onchange=()=>{S.scen=sel.value; setDesc(); syncDerived();};
+  setDesc();
+
+  seg("segN","N"); seg("segDet","nDet"); seg("segViews","nViews"); seg("segDetType","detType");
+
+  $("aperture").onchange=e=>S.aperture=e.target.checked;
+  $("poly").onchange=e=>S.poly=e.target.checked;
+  $("warm").onchange=e=>{S.warm=e.target.checked;syncDerived();};
+  $("showROI").onchange=e=>{S.showROI=e.target.checked;syncDerived();};
+  $("seed").onchange=e=>S.seed=Math.max(1,+e.target.value||1);
+  $("method").onchange=e=>{S.method=e.target.value;syncDerived();};
+  $("filter").onchange=e=>S.filter=e.target.value;
+  $("denoise").onchange=e=>S.denoise=e.target.value;
+
+  ["dose","enoise","csFrac","spr","ring","bad","motion","cutoff","iters","tvw","dnStr"]
+    .forEach(k=>slider(k,k==="csFrac"?"csFrac":k));
+  slider("ww","ww",redraw); slider("wl","wl",redraw);
+
+  const presets={soft:[400,40],brain:[80,40],lung:[1500,-600],bone:[2000,500],wide:[4000,0]};
+  $("preset").onchange=e=>{
+    const [w,l]=presets[e.target.value];
+    S.ww=w; S.wl=l; $("ww").value=w; $("wl").value=l; syncDerived(); redraw();
+  };
+
+  $("run").onclick=run;
+  $("pin").onclick=addPin;
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) run();
+  });
+
+  syncDerived();
+  run();
+})();
+
+function redraw(){
+  if(!last) return;
+  drawHU($("cRec"),last.img,last.N,S.wl,S.ww);
+  if(S.showROI) overlayROIs($("cRec"),last.N,SCENARIOS[S.scen].fov/20,SCENARIOS[S.scen].fov/20,SCENARIOS[S.scen]);
+  renderPins();
+}
+</script>
+</body>
+</html>
