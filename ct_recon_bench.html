@@ -93,7 +93,7 @@ button.ghost:hover{color:var(--amber); border-color:var(--amber)}
 .metric .v small{font-size:11px; color:var(--dim); margin-left:3px}
 .metric.good .v{color:var(--green)} .metric.warn .v{color:var(--amber)} .metric.bad .v{color:var(--red)}
 
-.plots{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:16px}
+.plots{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-top:16px}
 @media(max-width:1000px){.plots{grid-template-columns:1fr}}
 
 h3.sec{
@@ -173,8 +173,64 @@ details.notes .body p{margin:0 0 10px}
       </div>
     </div>
     <div class="row">
+      <label>Source to isocentre <span class="val" id="vSod"></span></label>
+      <input type="range" id="sod" min="400" max="700" step="5" value="550">
+    </div>
+    <div class="row">
+      <label>Source to detector <span class="val" id="vSdd"></span></label>
+      <input type="range" id="sdd" min="750" max="1200" step="5" value="950">
+      <div class="hint" id="hintGeom"></div>
+    </div>
+    <div class="row">
       <label class="chk"><input type="checkbox" id="aperture" checked> Integrate over detector aperture</label>
       <div class="hint">Off = point sampling. On = 3-point average across each element, so pitch limits resolution as it does on a real module.</div>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>X-ray tube</h2>
+    <div class="row">
+      <label>Tube voltage <span class="val" id="vKvp"></span></label>
+      <input type="range" id="kvp" min="70" max="140" step="1" value="120">
+      <div class="hint">Sets the bremsstrahlung endpoint. Above 70 kVp the tungsten K lines at 59 and 67 keV appear in the spectrum.</div>
+    </div>
+    <div class="row">
+      <label>Focal spot <span class="val" id="vFs"></span></label>
+      <input type="range" id="fsMm" min="0.2" max="1.4" step="0.05" value="0.6">
+    </div>
+    <div class="row">
+      <label>Anode angle <span class="val" id="vAnode"></span></label>
+      <input type="range" id="anodeDeg" min="7" max="20" step="0.5" value="12">
+    </div>
+    <div class="row">
+      <label>Added filtration, Al <span class="val" id="vAl"></span></label>
+      <input type="range" id="alMm" min="0" max="14" step="0.1" value="7.0">
+    </div>
+    <div class="row">
+      <label>Added filtration, Cu <span class="val" id="vCu"></span></label>
+      <input type="range" id="cuMm" min="0" max="0.6" step="0.01" value="0.2">
+    </div>
+    <div class="row">
+      <label>Bowtie filter</label>
+      <div class="seg" id="segBow">
+        <button data-v="none">None</button><button data-v="head">Head</button><button data-v="body">Body</button>
+      </div>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="heel" checked> Heel effect</label>
+      <div class="hint">Self-absorption in the anode. Stationary in the detector frame, so it maps to rings — and because it hardens the beam on the anode side, a scalar flat-field does not fully remove it.</div>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="waterCal" checked> Water calibration</label>
+      <div class="hint">What a scanner does per kVp so water reads 0 HU on every protocol. It sets the level; it does not remove cupping, which varies with path length and needs the polynomial water correction on top.</div>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="grid"> Anti-scatter grid</label>
+      <div class="hint">Passes 70 % of the primary, 15 % of the scatter. Cleaner, but noisier at the same dose.</div>
+    </div>
+    <div class="row">
+      <label>Beam quality <span class="val" id="vBeam"></span></label>
+      <div class="hint" id="hintBeam"></div>
     </div>
   </div>
 
@@ -195,8 +251,27 @@ details.notes .body p{margin:0 0 10px}
       <input type="range" id="enoise" min="0" max="120" step="1" value="30">
     </div>
     <div class="row" id="rowCS" hidden>
-      <label>Charge sharing to neighbours <span class="val" id="vCS"></span></label>
+      <label>Inter-channel cross-talk <span class="val" id="vCS"></span></label>
       <input type="range" id="csFrac" min="0" max="0.4" step="0.01" value="0.12">
+      <div class="hint">A spatial redistribution of expected counts — the resolution cost of charge sharing, not its spectral physics. There is no pulse-height model here, so no shared-event energy loss, double counting, bin migration, pile-up or dead time.</div>
+    </div>
+    <div class="row">
+      <label>Sensor material</label>
+      <div class="seg" id="segSenMat">
+        <button data-v="csi">CsI</button><button data-v="gos">GOS</button><button data-v="czt">CZT</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Sensor thickness <span class="val" id="vSen"></span></label>
+      <input type="range" id="senMm" min="0.3" max="4" step="0.1" value="2.0">
+      <div class="hint" id="hintSen"></div>
+    </div>
+    <div class="row">
+      <label>Exposure meaning</label>
+      <div class="seg" id="segDoseMode">
+        <button data-v="element">Per element</button><button data-v="scan">Fixed scan</button><button data-v="mas">Fixed mAs</button>
+      </div>
+      <div class="hint" id="hintDose"></div>
     </div>
   </div>
 
@@ -346,6 +421,10 @@ details.notes .body p{margin:0 0 10px}
 
   <div class="plots">
     <div class="pane">
+      <div class="cap"><span>X-ray spectrum</span><em id="capSpec">at the isocentre</em></div>
+      <canvas id="cSpec" width="520" height="300"></canvas>
+    </div>
+    <div class="pane">
       <div class="cap"><span>Central profile</span><em>HU vs position</em></div>
       <canvas id="cProf" width="520" height="300"></canvas>
     </div>
@@ -366,9 +445,55 @@ details.notes .body p{margin:0 0 10px}
     <summary>What is actually being simulated</summary>
     <div class="body">
       <p><b>Forward model.</b> Phantoms are sums of analytic ellipses, so line integrals are exact: for each ellipse the Radon transform is closed-form, and path length is accumulated <i>per material</i>. Nothing is projected from a pixel grid, so the sinogram carries no discretization error of its own.</p>
-      <p><b>Spectrum.</b> Five energy bins (40–120 keV) with 120 kVp fluence weights. Transmitted quanta per bin are <code>N₀·w(E)·exp(−Σ μₘ(E)·Lₘ)</code> with μ from tabulated NIST-like values for water, fat, lung, cortical bone, iodinated blood and titanium. The log-signal is formed from the <i>summed</i> bins, which is where beam hardening comes from — no artifact is painted on.</p>
-      <p><b>Detector.</b> EID weights each bin by E and adds Gaussian electronic noise; PCD counts quanta with unity weight, has no electronic noise floor, and optionally spreads charge into neighbouring channels. At low dose the difference in CNR is the real one you would measure on a bench.</p>
-      <p><b>Artifacts.</b> Scatter is added as an additive intensity floor before the log. Ring artifacts come from a fixed per-channel gain error. Motion displaces flagged structures as a function of view angle. Sparse views, photon starvation and metal streaks all emerge from the physics rather than from a filter.</p>
+      <p><b>X-ray tube.</b> The spectrum is generated rather than tabulated: Kramers bremsstrahlung to the
+kVp endpoint, tungsten K lines at 59 and 67 keV once the tube can ionise the K shell, then filtered
+through the inherent 1 mm Al plus whatever Al and Cu you add. Mean energy and half-value layer are
+computed from that spectrum, so filtration visibly buys beam quality. The <i>heel effect</i> is
+anode self-absorption: emission toward the anode traverses more tungsten, so that side is both
+dimmer and harder. It is stationary in the detector frame, which is why it maps to rings — real
+scanners orient the heel gradient along <i>z</i> for exactly this reason. The <i>bowtie</i> is
+modelled as an Al-equivalent thickness rising quadratically toward the edge. Both act before the
+patient, so in monochromatic mode they cancel exactly in the air normalisation and only change the
+noise; polychromatically they leave a residual, because the spectrum now differs per channel.
+The <i>focal spot</i> blurs the transmitted intensity, not the path lengths, with a geometric
+unsharpness of f(M−1)/M referred to the isocentre — so it only limits resolution once it exceeds the
+detector pitch, which is the whole argument about ultra-high-resolution modes.
+
+<b>Spectrum.</b> Sixteen transport bins resampled from the generated 1 keV spectrum, spanning 10 keV to the kVp endpoint. Transmitted quanta per bin are <code>N₀·w(E)·exp(−Σ μₘ(E)·Lₘ)</code> with μ log-log interpolated from NIST-like tables for water, fat, lung, cortical bone, iodinated blood and implant alloy over 20–140 keV; the iodine K-edge at 33.17 keV is carried explicitly. The 40/60/80/100/120 keV columns are unchanged from the original table, so every previously validated number still holds. The log-signal is formed from the <i>summed</i> bins, which is where beam hardening comes from — no artifact is painted on.</p>
+      <p><b>Aperture.</b> Each element traces several sub-rays that are kept separate through the
+exponential and averaged as <i>intensities</i>, because that is what a detector integrates.
+Averaging path lengths first — the obvious shortcut — understates the signal wherever an element
+straddles a high-contrast edge: half an element covered by a ray of &mu;L = 6 measures a line
+integral 2.3 too high that way. That error is the exponential edge-gradient effect, and it is a
+real source of streaks near bone and metal.
+
+<b>Exposure.</b> The dose slider can mean three things, and the choice matters for any comparison.
+<i>Per element</i> is raw fluence per element per view, so adding views or channels adds total
+exposure — convenient, but it makes view-count and pitch comparisons dose-mismatched. <i>Fixed
+scan</i> holds the whole-scan photon budget constant. <i>Fixed mAs</i> additionally lets kVp and
+filtration change the fluence, as they do on a real tube, so filtration finally costs you output
+instead of being normalised away.
+
+<b>Detector.</b> EID weights each bin by E and adds Gaussian electronic noise; PCD counts quanta
+with unity weight and has no electronic noise floor. Both carry an energy-dependent absorption
+efficiency computed from the sensor's mass attenuation coefficient, density and thickness, on a
+grid that resolves the Cd, Te, I, Cs and Gd K-edges. Absorption is <i>not</i> ordered simply by
+atomic number: GOS is a scintillator and beats CZT above 100 keV, because what decides it is
+&rho;&nbsp;&times;&nbsp;&mu;/&rho; together with where the K-edge sits relative to the spectrum.
+The water calibration uses the same weighting as the detector it is calibrating, which it must, or
+the two detectors land on HU scales about 29 apart. The air reference passes through the same
+focal-spot blur and cross-talk as the measurement, so an empty object returns zero.
+What is <i>not</i> modelled: pulse-height spectra, thresholds, energy resolution, dead time,
+pile-up, K-escape, optical spread and conversion statistics in the scintillator, and the spectral
+half of charge sharing. The cross-talk slider is a spatial approximation, not a charge-sharing
+physics model. Because of those gaps and an unvalidated spectrum, the EID-versus-PCD numbers here
+show the direction and rough scale of the effect; they are not a substitute for bench measurement. The gap widens as dose falls and as the object thickens, and narrows toward parity at high dose once both are quantum limited.</p>
+      <p><b>Artifacts.</b> Scatter is added to the intensity before the log, which is why it depresses HU
+rather than raising them. Its source term follows the amount of material along each ray — the line
+integral — so the field peaks behind the thickest part of the object, and the slider sets the
+scatter-to-primary ratio on that thickest ray, which is how SPR is normally quoted. It is an
+input you choose per scenario, not something derived from object size. Ring artifacts come from a
+fixed per-channel gain error. Motion displaces flagged structures as a function of view angle. Sparse views, photon starvation and metal streaks all emerge from the physics rather than from a filter.</p>
       <p><b>Reconstruction.</b> FBP uses an FFT ramp filter in cycles/cm with selectable apodization; the backprojection is in physical units, so the output is μ in cm⁻¹ and converts to HU against μ<sub>water</sub>(70 keV) = 0.195 cm⁻¹. SIRT uses a matched Joseph ray-driven projector pair with row/column normalization; the TV variant adds a gradient-descent step on total variation between iterations.</p>
       <p><b>Metrics.</b> Noise σ and CNR from the marked ROIs; RMSE, PSNR and SSIM against the ground truth rasterized on the same grid, evaluated only inside the patient and with HU mapped to [0,1] for SSIM (RMSE includes partial-volume differences at sharp edges, so it never reaches zero); cupping as centre-minus-periphery HU in the uniform region; MTF from an oversampled radial edge-spread function around the marked disk; NPS from the 2-D FFT of the background ROI. Attenuation values are approximate and intended for teaching and method comparison, not for dosimetry or acceptance testing.</p>
     </div>
@@ -417,6 +542,237 @@ const MU_EFF = {}; MATS.forEach(m=>MU_EFF[m]=0.5*(MU[m][1]+MU[m][2]));
 const MU_WATER = MU_EFF.soft;                     // 0.195 cm^-1
 const toHU  = mu => 1000*(mu-MU_WATER)/MU_WATER;
 const fromHU= hu => MU_WATER*(1+hu/1000);
+
+/* ===================== extended attenuation + tube physics ===================== */
+// mu in 1/cm on a wider grid; the 40/60/80/100/120 columns match MU above exactly,
+// so every previously validated number is unchanged. The pair at 33.1/33.3 keV
+// carries the iodine K-edge.
+const EX_E = [20, 30, 33.1, 33.3, 40, 50, 60, 70, 80, 100, 120, 140];
+const EX_MU = {
+  air:    [0,0,0,0,0,0,0,0,0,0,0,0],
+  lung:   [0.2024,0.0939,0.0819,0.0813,0.0670,0.0566,0.0515,0.0485,0.0460,0.0428,0.0403,0.0385],
+  fat:    [0.6296,0.3155,0.2830,0.2814,0.2270,0.2003,0.1830,0.1740,0.1670,0.1570,0.1490,0.1432],
+  soft:   [0.8096,0.3756,0.3275,0.3250,0.2680,0.2262,0.2060,0.1940,0.1840,0.1710,0.1610,0.1538],
+  bone:   [7.6820,2.5560,1.9800,1.9600,1.2780,0.8380,0.6040,0.5000,0.4280,0.3560,0.3200,0.2982],
+  iodine: [1.3500,0.7800,0.7000,3.6000,2.0000,1.3000,0.9500,0.7200,0.5800,0.4400,0.3600,0.3150],
+  metal:  [34.000,12.500,9.5000,9.4000,5.4700,2.8500,1.8300,1.3300,1.0300,0.7500,0.6200,0.5450]
+};
+// the three soft-tissue variants are water scaled by a constant, exactly as in MU
+EX_MU.softLow = EX_MU.soft.map(v=>v*0.97985);
+EX_MU.softHi  = EX_MU.soft.map(v=>v*1.02015);
+EX_MU.muscle  = EX_MU.soft.map(v=>v*1.02985);
+
+// filter and anode materials, mu in 1/cm (mass coefficient x density)
+const FIL_E = [15,20,25,30,40,50,60,69,70,80,100,120,140];
+const FIL_MU = {
+  al: [7.955,3.441,1.919,1.128,0.5685,0.3681,0.2778,0.2420,0.2382,0.2018,0.1704,0.1536,0.1436]
+        .map(v=>v*2.699),
+  cu: [78.00,33.79,19.00,10.92,4.8620,2.6130,1.5930,1.1500,1.1190,0.7630,0.4584,0.3279,0.2547]
+        .map(v=>v*8.960),
+  // tungsten: the jump between 69 and 70 keV is the K-edge at 69.5
+  w:  [116.0,65.73,38.00,22.74,10.670,5.9490,3.7130,2.5500,11.100,7.8100,4.4380,2.8210,1.9810]
+        .map(v=>v*19.30)
+};
+function interpLL(grid, vals, E){          // log-log interpolation, clamped at the ends
+  if(E<=grid[0]) return vals[0];
+  const n=grid.length;
+  if(E>=grid[n-1]) return vals[n-1];
+  let i=0; while(i<n-2 && E>grid[i+1]) i++;
+  const v0=vals[i], v1=vals[i+1];
+  if(v0<=0||v1<=0){
+    const t=(E-grid[i])/(grid[i+1]-grid[i]); return v0+t*(v1-v0);
+  }
+  const t=(Math.log(E)-Math.log(grid[i]))/(Math.log(grid[i+1])-Math.log(grid[i]));
+  return Math.exp(Math.log(v0)+t*(Math.log(v1)-Math.log(v0)));
+}
+const muMat = (m,E)=> EX_MU[m] ? interpLL(EX_E, EX_MU[m], E) : 0;
+const muFil = (m,E)=> interpLL(FIL_E, FIL_MU[m], E);
+
+/* Sensor materials. These are mass attenuation coefficients in cm^2/g, computed from
+   elemental mu/rho and stoichiometry rather than written by hand, then multiplied by
+   density. The grid resolves every K-edge that falls in the diagnostic range:
+   Cd 26.7, Te 31.8, I 33.2, Cs 36.0, Gd 50.2 keV.
+     CsI  caesium iodide,        1:1,        4.51 g/cm3   (EID scintillator)
+     GOS  gadolinium oxysulfide, Gd2O2S,     7.34 g/cm3   (EID scintillator)
+     CZT  cadmium zinc telluride, Cd0.9Zn0.1Te, 5.78 g/cm3 (PCD direct converter)
+   Ordering is NOT simply "higher Z wins": GOS is a scintillator and outperforms CZT above
+   100 keV, because what matters is rho x mu/rho together with where the K-edge sits. */
+const SEN_E = [20,26.6,26.8,31.7,31.9,33.1,33.3,35.9,36.1,40,50.1,50.4,60,80,100,120,140];
+const SEN_RHO = {csi:4.51, gos:7.34, czt:5.78};
+const SEN_NAME = {csi:"CsI", gos:"GOS", czt:"CZT"};
+const SEN_MU = {
+  csi: [34.632,15.916,15.665,9.880,9.795,8.809,22.360,18.316,30.165,23.114,12.998,12.868,
+        8.074,3.744,2.092,1.364,0.953].map(v=>v*SEN_RHO.csi),
+  gos: [21.632,10.469,10.300,6.598,6.488,5.874,5.789,4.729,4.661,3.539,1.884,10.524,
+        6.771,3.212,1.845,1.204,0.862].map(v=>v*SEN_RHO.gos),
+  czt: [26.439,12.181,32.785,20.806,39.999,36.007,35.411,28.779,28.336,21.650,11.967,11.773,
+        7.413,3.417,1.900,1.216,0.852].map(v=>v*SEN_RHO.czt)
+};
+// fraction of incident quanta absorbed in the sensor, per energy bin
+function detEff(beam, cfg){
+  const n=beam.nE, out=new Float64Array(n);
+  if(!cfg || !cfg.senMm){ out.fill(1); return out; }
+  const mat = SEN_MU[cfg.senMat] ? cfg.senMat : (cfg.detType==="pcd" ? "czt" : "csi");
+  const t = cfg.senMm/10;                            // cm
+  for(let e=0;e<n;e++) out[e]=1-Math.exp(-interpLL(SEN_E,SEN_MU[mat],beam.E[e])*t);
+  return out;
+}
+
+const N_EBIN = 16;                          // transport bins; 8+ is converged, 16 is cheap
+const INHERENT_AL = 1.0;                    // mm Al equivalent, tube window + oil + port
+
+// Kramers bremsstrahlung + tungsten K lines, filtered. Returns a 1 keV fluence grid.
+function tubeSpectrum(kvp, alMm, cuMm){
+  const E=[], w=[];
+  for(let e=10; e<=kvp; e+=1){
+    let n = (kvp/e - 1);                    // Kramers photon fluence
+    if(n<0) n=0;
+    E.push(e); w.push(n);
+  }
+  // characteristic K lines appear once the tube can ionise the W K shell (69.5 keV)
+  if(kvp>70){
+    const drive=Math.pow(kvp/69.5-1, 1.6);
+    const raw=w.reduce((a,b)=>a+b,0);
+    const add=(Ec,frac)=>{
+      const i=Math.round(Ec)-10;
+      if(i>=0 && i<w.length) w[i]+= frac*drive*raw;
+    };
+    add(59.0, 0.055); add(67.5, 0.018);
+  }
+  // filtration
+  const tAl=(alMm+INHERENT_AL)/10, tCu=cuMm/10;   // cm
+  for(let i=0;i<E.length;i++){
+    w[i] *= Math.exp(-muFil("al",E[i])*tAl - muFil("cu",E[i])*tCu);
+  }
+  return {E, w};
+}
+// mass energy-absorption coefficient of air, cm^2/g — HVL is defined on air kerma,
+// not on energy fluence, and the two differ because air absorbs low energies far better
+const AIR_E  = [10,15,20,30,40,50,60,80,100,150];
+const AIR_EN = [4.742,1.334,0.5389,0.1537,0.06833,0.04098,0.03041,0.02407,0.02325,0.02496];
+const airKermaW = E => E*interpLL(AIR_E, AIR_EN, E);
+
+function relOutput(kvp,al,cu){
+  const ref=tubeSpectrum(120,7.0,0.2), cur=tubeSpectrum(kvp,al,cu);
+  let a=0,b=0;
+  for(const v of cur.w) a+=v;
+  for(const v of ref.w) b+=v;
+  return b>0?a/b:1;
+}
+// half-value layer in mm Al, by bisection on AIR KERMA
+function halfValueLayer(sp){
+  const f = t => {
+    let a=0,b=0;
+    for(let i=0;i<sp.E.length;i++){
+      const q=sp.w[i]*airKermaW(sp.E[i]);
+      b+=q; a+=q*Math.exp(-muFil("al",sp.E[i])*t);
+    }
+    return b>0 ? a/b : 1;
+  };
+  let lo=0, hi=30;
+  for(let k=0;k<40;k++){ const m=0.5*(lo+hi); if(f(m/10)>0.5) lo=m; else hi=m; }
+  return 0.5*(lo+hi);
+}
+function meanEnergy(sp){
+  let a=0,b=0;
+  for(let i=0;i<sp.E.length;i++){ a+=sp.w[i]*sp.E[i]; b+=sp.w[i]; }
+  return b>0 ? a/b : 0;
+}
+// bin the 1 keV spectrum down to N_EBIN transport bins
+function binSpectrum(sp, nBin){
+  const lo=10, hi=sp.E[sp.E.length-1];
+  const Eb=new Float64Array(nBin), wb=new Float64Array(nBin);
+  const dw=(hi-lo)/nBin;
+  for(let i=0;i<sp.E.length;i++){
+    let k=Math.floor((sp.E[i]-lo)/dw); if(k<0)k=0; if(k>=nBin)k=nBin-1;
+    wb[k]+=sp.w[i]; Eb[k]+=sp.w[i]*sp.E[i];
+  }
+  const E=[], w=[];
+  for(let k=0;k<nBin;k++){
+    if(wb[k]>1e-12){ E.push(Eb[k]/wb[k]); w.push(wb[k]); }
+  }
+  const tot=w.reduce((a,b)=>a+b,0);
+  return {E, w:w.map(v=>v/tot)};
+}
+
+/* Per-channel beam: heel effect and bowtie both vary across the detector and both
+   change the spectrum, not just its magnitude. Returns w2[e][i], already normalised
+   so the central channel carries unit fluence. */
+function buildBeam(cfg, nDet){
+  const mono = !cfg.poly;
+  const sp = mono ? {E:[70], w:[1]} : binSpectrum(tubeSpectrum(cfg.kvp, cfg.alMm, cfg.cuMm), N_EBIN);
+  const nE = sp.E.length;
+  // angular half-extent of the detector as seen from the source
+  const detHalfMm = cfg.detHalfCm*10 * (cfg.sdd/cfg.sod);   // detector half width at the detector
+  const fanHalf = Math.atan(detHalfMm/cfg.sdd);
+  const alpha = cfg.anodeDeg*Math.PI/180;
+  // In a real scanner the anode-cathode axis lies along z, so the heel gradient runs along the
+  // slice direction, where the beam spans only a few degrees. A 2D simulator has no z, so the
+  // gradient is laid across the detector instead — a demonstration of the effect, spanning
+  // 0.7 x the anode angle so it never runs into the anode's own cutoff.
+  const thMax = Math.min(fanHalf, 0.7*alpha);
+  const dAnode = 3e-4;                       // cm, mean x-ray production depth in the target
+  const bowMax = cfg.bowtie==="head" ? 0.8 : cfg.bowtie==="body" ? 2.8 : 0;  // cm Al-equivalent
+
+  const w2 = [];
+  for(let e=0;e<nE;e++) w2.push(new Float64Array(nDet));
+  for(let i=0;i<nDet;i++){
+    const u = (i+0.5)/nDet*2 - 1;            // -1 .. +1 across the detector
+    const th = u*thMax;                      // emission angle, + toward the anode
+    const tBow = bowMax*u*u;
+    for(let e=0;e<nE;e++){
+      const E=sp.E[e];
+      let g = sp.w[e];
+      if(cfg.heel && !mono){
+        const den = Math.sin(alpha-th);
+        if(den<=0.02) g=0;                   // past the anode shadow
+        else g *= Math.exp(-muFil("w",E)*dAnode*(1/den - 1/Math.sin(alpha)));
+      }
+      if(tBow>0) g *= Math.exp(-muFil("al",E)*tBow);
+      w2[e][i]=g;
+    }
+  }
+  // Relative tube output BEFORE normalisation, referenced to the default beam. This is what
+  // filtration actually costs you, and it is what the "fixed tube output" exposure mode uses.
+  const c=Math.floor(nDet/2);
+  let cen=0; for(let e=0;e<nE;e++) cen+=w2[e][c];
+  let outputRel = 1;
+  if(!mono){
+    const ref = tubeSpectrum(120, 7.0, 0.2);
+    let rs=0; for(let i=0;i<ref.w.length;i++) rs+=ref.w[i];
+    let cs=0;
+    const cur = tubeSpectrum(cfg.kvp, cfg.alMm, cfg.cuMm);
+    for(let i=0;i<cur.w.length;i++) cs+=cur.w[i];
+    outputRel = rs>0 ? cs/rs : 1;
+  }
+  // normalise so the central channel sums to 1; the dose slider then means
+  // "quanta per element on the central ray", as it did before
+  if(cen>0) for(let e=0;e<nE;e++) for(let i=0;i<nDet;i++) w2[e][i]/=cen;
+  return {E:sp.E, w2, nE, mono, sp, outputRel};
+}
+
+// Effective attenuation of water for the current beam, measured the way a scanner
+// calibrates it: push the beam through a reference thickness and divide the measured
+// line integral by that thickness. Fixes the HU level; does NOT fix cupping, which is
+// path-length dependent and needs the polynomial water correction real scanners apply.
+const CAL_PATH_CM = 20;
+// The calibration must use the same detector weighting as the measurement: an EID weights
+// each quantum by its energy, a PCD counts them equally. Using unity weighting for both
+// puts EID and PCD on different HU scales, which corrupts the comparison the bench exists
+// to make — about 29 HU at the default spectrum.
+function waterMu(beam, cfg){
+  if(beam.mono) return MU_WATER;
+  const c=Math.floor(beam.w2[0].length/2);
+  const eid = !cfg || cfg.detType==="eid";
+  const eff = detEff(beam, cfg);
+  let I=0, I0=0;
+  for(let e=0;e<beam.nE;e++){
+    const w=beam.w2[e][c]*eff[e]*(eid?beam.E[e]:1); if(w<=0) continue;
+    I0+=w; I+=w*Math.exp(-muMat("soft",beam.E[e])*CAL_PATH_CM);
+  }
+  if(I<=0||I0<=0) return MU_WATER;
+  return -Math.log(I/I0)/CAL_PATH_CM;
+}
 
 /* ============================== phantoms ============================== */
 // object = {x,y,a,b,phi, comp:{material:weight}, move:bool}   coords normalized to unit circle
@@ -546,6 +902,9 @@ const SCENARIOS = {
 /* ============================== state ============================== */
 const S = {
   scen:"head", N:256, nDet:256, nViews:360, aperture:true,
+  kvp:120, anodeDeg:12, fsMm:0.6, alMm:7.0, cuMm:0.2, bowtie:"none",
+  heel:true, grid:false, waterCal:true, sod:550, sdd:950,
+  senMm:2.0, senMat:"csi", doseMode:"element",
   detType:"eid", dose:5.5, enoise:30, csFrac:0.12,
   poly:true, spr:0, ring:0, bad:0, motion:0, seed:7,
   method:"fbp", filter:"shepp", cutoff:1, iters:12, tvw:0.3, warm:true,
@@ -556,8 +915,11 @@ let last = null;   // {gtHU, recHU, sino, meta}
 /* ============================== forward projection ============================== */
 // exact Radon transform of an ellipse, accumulated per material
 function forwardProject(objs, nViews, nDet, sMaxCm, sub, motionCm, scale){
-  const nM = MATS.length;
-  const L = new Float32Array(nM*nViews*nDet);
+  const nM = MATS.length, nvd = nViews*nDet;
+  // One slab per sub-ray. They are averaged in measure(), AFTER the exponential, because
+  // an element integrates transmitted intensity. Averaging path lengths first understates
+  // the signal badly wherever an element straddles a high-contrast edge.
+  const L = new Float32Array(sub*nM*nvd);
   const ds = 2*sMaxCm/nDet;
   const subW = sub>1 ? ds/sub : 0;
   const offs = [];
@@ -584,16 +946,15 @@ function forwardProject(objs, nViews, nDet, sMaxCm, sub, motionCm, scale){
       const comps = Object.keys(ob.comp);
       for(let i=0;i<nDet;i++){
         const sc = -sMaxCm + ds*(i+0.5);
-        let acc = 0;
         for(let k=0;k<sub;k++){
           const sp = sc + offs[k] - cp;
-          if(Math.abs(sp) < rt) acc += k2*Math.sqrt(A - sp*sp);
-        }
-        if(acc===0) continue;
-        acc *= wsub;
-        for(let c=0;c<comps.length;c++){
-          const m = comps[c]; if(MI[m]===undefined) continue;
-          L[MI[m]*nViews*nDet + v*nDet + i] += ob.comp[m]*acc;
+          if(Math.abs(sp) >= rt) continue;
+          const chord = k2*Math.sqrt(A - sp*sp);
+          const base = k*nM*nvd + v*nDet + i;
+          for(let c=0;c<comps.length;c++){
+            const m = comps[c]; if(MI[m]===undefined) continue;
+            L[base + MI[m]*nvd] += ob.comp[m]*chord;
+          }
         }
       }
     }
@@ -602,20 +963,53 @@ function forwardProject(objs, nViews, nDet, sMaxCm, sub, motionCm, scale){
 }
 
 /* ============================== detector / noise model ============================== */
-function measure(L, nViews, nDet, cfg){
+function measure(L, nViews, nDet, cfg, beam){
   const nM=MATS.length, nvd=nViews*nDet;
   const p = new Float32Array(nvd);
   const N0 = Math.pow(10, cfg.dose);
-  const eBins = cfg.poly ? E_BINS.length : 1;
-  const w = cfg.poly ? SPEC_W : [1];
-  const Emean = cfg.poly ? E_BINS.reduce((s,e,i)=>s+e*SPEC_W[i],0) : 70;
+  if(!beam) beam = buildBeam(cfg, nDet);
+  const eBins = beam.nE;
+  const EE = beam.E, W2 = beam.w2;
+  const Emean = meanE(beam);
+  const eff = detEff(beam, cfg);
+  const nSub = Math.max(1, Math.round(L.length/(nM*nvd)));
 
-  // reference (air) signal
-  let S0=0;
-  for(let e=0;e<eBins;e++){
-    const N = N0*w[e];
-    S0 += cfg.detType==="eid" ? N*(cfg.poly?E_BINS[e]:70) : N;
+  // What the dose slider means. "element" is raw incident fluence per element per view, so
+  // adding views or channels adds total exposure. "scan" holds the whole-scan photon budget
+  // fixed, which is the only honest way to compare view counts or detector pitch. "mas" also
+  // lets filtration and kVp change the fluence, as they do on a real tube at fixed mAs.
+  let N0eff = N0;
+  if(cfg.doseMode==="scan" || cfg.doseMode==="mas"){
+    N0eff *= (360/nViews)*(256/nDet);
+    if(cfg.doseMode==="mas") N0eff *= beam.outputRel;
   }
+
+  // focal-spot blur, expressed in detector samples at the isocentre
+  const M = cfg.sdd/cfg.sod;
+  const dsCm = 2*cfg.sMaxCm/nDet;
+  const uisoCm = cfg.fsMm*(M-1)/M/10;                 // geometric unsharpness, FWHM
+  const fsSig = uisoCm/2.355/dsCm;
+  const fsK = fsSig>0.05 ? gaussKernel(fsSig) : null;
+
+  // anti-scatter grid: keeps most of the primary, rejects most of the scatter
+  const gridP = cfg.grid ? 0.70 : 1.0;
+  const gridS = cfg.grid ? 0.15 : 1.0;
+
+  // Per-channel reference (air) signal — the flat-field calibration. It must pass through
+  // the SAME spatial response as the measurement (focal-spot blur, cross-talk), or a
+  // spatially varying beam leaves a residual on an empty object, which reconstructs as rings.
+  const xtalk = (cfg.detType==="pcd" && cfg.csFrac>0) ? cfg.csFrac : 0;
+  const S0 = new Float64Array(nDet);
+  for(let e=0;e<eBins;e++){
+    const air = new Float64Array(nDet);
+    for(let i=0;i<nDet;i++) air[i] = N0eff*W2[e][i]*gridP*eff[e];
+    if(fsK) blur1D(air, nDet, fsK);
+    if(xtalk) crossTalk(air, nDet, xtalk);
+    const wt = cfg.detType==="eid" ? EE[e] : 1;
+    for(let i=0;i<nDet;i++) S0[i] += air[i]*wt;
+  }
+  for(let i=0;i<nDet;i++) if(!(S0[i]>0)) S0[i]=1e-9;
+  let S0mean=0; for(let i=0;i<nDet;i++) S0mean+=S0[i]; S0mean/=nDet;
 
   // per-channel gain errors (fixed across views -> rings)
   const gain = new Float32Array(nDet).fill(1);
@@ -635,28 +1029,30 @@ function measure(L, nViews, nDet, cfg){
     let primaryMean=0;
 
     for(let e=0;e<eBins;e++){
-      const Ne = N0*w[e];
-      const Eph = cfg.poly ? E_BINS[e] : 70;
+      const Eph = EE[e];
       const wt = cfg.detType==="eid" ? Eph : 1;
-      // expected transmitted quanta
+      // mu for this bin, once per material rather than once per ray
+      const muE = new Float64Array(nM);
+      for(let m=0;m<nM;m++) muE[m] = beam.mono ? MU_EFF[MATS[m]] : muMat(MATS[m], Eph);
+      // expected transmitted quanta: exponentiate each sub-ray, THEN average intensities
       const tmp = new Float64Array(nDet);
       for(let i=0;i<nDet;i++){
-        let att=0;
-        for(let m=0;m<nM;m++){
-          const l = L[m*nvd + v*nDet + i];
-          if(l!==0) att += (cfg.poly?MU[MATS[m]][e]:MU_EFF[MATS[m]])*l;
+        let I=0;
+        for(let k=0;k<nSub;k++){
+          let att=0;
+          const base = k*nM*nvd + v*nDet + i;
+          for(let m=0;m<nM;m++){
+            const l = L[base + m*nvd];
+            if(l!==0) att += muE[m]*l;
+          }
+          I += Math.exp(-att);
         }
-        tmp[i] = Ne*Math.exp(-att);
+        tmp[i] = N0eff*W2[e][i]*gridP*eff[e]*I/nSub;
       }
-      // PCD spatial charge sharing between neighbouring pixels
-      if(cfg.detType==="pcd" && cfg.csFrac>0){
-        const f=cfg.csFrac, sm=new Float64Array(nDet);
-        for(let i=0;i<nDet;i++){
-          const lft = tmp[i>0?i-1:0], rgt = tmp[i<nDet-1?i+1:nDet-1];
-          sm[i] = (1-f)*tmp[i] + 0.5*f*(lft+rgt);
-        }
-        tmp.set(sm);
-      }
+      // finite focal spot averages the intensity over a range of ray paths
+      if(fsK) blur1D(tmp, nDet, fsK);
+      // spatial cross-talk between neighbouring channels, same operator as the air reference
+      if(xtalk) crossTalk(tmp, nDet, xtalk);
       for(let i=0;i<nDet;i++){
         const n = poisson(tmp[i]*gain[i]);
         cnt[i] += n*wt;
@@ -670,30 +1066,77 @@ function measure(L, nViews, nDet, cfg){
     //    ratio inside the object shadow equals the requested SPR
     if(cfg.spr>0){
       const sig = Math.max(3, nDet/8), rad = Math.ceil(2.2*sig);
-      let sumP=0, sumS=0, nIn=0;
+      // Scatter is produced by the material the beam passes through, so the source term
+      // follows the amount of that material — the line integral — not the primary signal,
+      // which peaks where the object is THINNEST. Using the line integral also keeps the
+      // field bounded in photon-starved rays, where extinction would blow up.
+      const gen = new Float64Array(nDet);
+      for(let i=0;i<nDet;i++){
+        const t = prim[i]>1e-9 ? -Math.log(Math.min(1, prim[i]/S0[i])) : 12;
+        gen[i] = Math.min(t, 12);
+      }
       for(let i=0;i<nDet;i++){
         let acc=0, wsum=0;
         for(let d=-rad; d<=rad; d++){
           const w = Math.exp(-d*d/(2*sig*sig));
-          acc += w*prim[clamp(i+d,0,nDet-1)]; wsum += w;
+          acc += w*gen[clamp(i+d,0,nDet-1)]; wsum += w;
         }
         scat[i]=acc/wsum;
       }
-      for(let i=0;i<nDet;i++){
-        if(prim[i] < 0.85*S0){ sumP += prim[i]; sumS += scat[i]; nIn++; }
-      }
-      const k = (nIn>0 && sumS>1e-9) ? cfg.spr*sumP/sumS : 0;
-      for(let i=0;i<nDet;i++) cnt[i] += k*scat[i];
+      // The slider is the scatter-to-primary ratio on the THICKEST ray, which is how SPR is
+      // normally quoted and where it does the damage. Normalising to the mean over the whole
+      // shadow instead would be dominated by the thin edge rays, and would then swamp the
+      // deep ones by orders of magnitude.
+      let imax=0;
+      for(let i=1;i<nDet;i++) if(gen[i]>gen[imax]) imax=i;
+      // SPR is a property of the beam reaching the grid, so it is normalised against the
+      // PRE-grid primary. The grid then attenuates primary and scatter by different factors
+      // and the ratio that survives is spr x gridS/gridP, not spr x gridS.
+      const k = scat[imax]>1e-12 ? cfg.spr*(prim[imax]/gridP)/scat[imax] : 0;
+      for(let i=0;i<nDet;i++) cnt[i] += k*scat[i]*gridS;
     }
 
     // 3. electronic noise (EID only), then log
     for(let i=0;i<nDet;i++){
       if(cfg.detType==="eid" && cfg.enoise>0) cnt[i] += cfg.enoise*Emean*gauss();
-      const ratio = cnt[i]/S0;
+      const ratio = cnt[i]/S0[i];
       p[v*nDet+i] = ratio>1e-7 ? -Math.log(ratio) : Math.log(1e7);
     }
   }
   return p;
+}
+
+function meanE(beam){
+  let a=0,b=0;
+  const c=Math.floor(beam.w2[0].length/2);
+  for(let e=0;e<beam.nE;e++){ a+=beam.w2[e][c]*beam.E[e]; b+=beam.w2[e][c]; }
+  return b>0? a/b : 70;
+}
+function gaussKernel(sig){
+  const r=Math.max(1,Math.ceil(3*sig)), k=new Float64Array(2*r+1);
+  let s=0;
+  for(let i=-r;i<=r;i++){ const v=Math.exp(-i*i/(2*sig*sig)); k[i+r]=v; s+=v; }
+  for(let i=0;i<k.length;i++) k[i]/=s;
+  k.r=r; return k;
+}
+// One-dimensional redistribution of expected counts to the two neighbours. Used for both
+// the measurement AND the air reference, so an empty object returns zero line integrals.
+function crossTalk(a, n, f){
+  const sm=new Float64Array(n);
+  for(let i=0;i<n;i++){
+    const lft=a[i>0?i-1:0], rgt=a[i<n-1?i+1:n-1];
+    sm[i]=(1-f)*a[i] + 0.5*f*(lft+rgt);
+  }
+  a.set(sm);
+}
+function blur1D(a, n, k){
+  const r=k.r, out=new Float64Array(n);
+  for(let i=0;i<n;i++){
+    let acc=0;
+    for(let d=-r;d<=r;d++) acc += k[d+r]*a[clamp(i+d,0,n-1)];
+    out[i]=acc;
+  }
+  a.set(out);
 }
 
 /* ============================== FFT + ramp filter ============================== */
@@ -1055,7 +1498,8 @@ function npsRadial(img,N,halfCm,roi,scaleCm){
   for(let y=0;y<M;y++)for(let x=0;x<M;x++){
     const ky=y<M/2?y:y-M, kx=x<M/2?x:x-M;
     const r=Math.round(Math.hypot(kx,ky));
-    if(r<nb){sum[r]+=(re[y][x]**2+im[y][x]**2)*px*px/(M*M); cnt[r]++;}
+    // px is in cm; the frequency axis is lp/mm, so the amplitude must be in HU^2 mm^2
+    if(r<nb){sum[r]+=(re[y][x]**2+im[y][x]**2)*(px*10)*(px*10)/(M*M); cnt[r]++;}
   }
   const freq=[],val=[];
   for(let r=1;r<nb;r++) if(cnt[r]>0){freq.push(r*df/10); val.push(sum[r]/cnt[r]);}
@@ -1165,6 +1609,38 @@ function drawProfile(canvas,gt,rec,N,fov){
   ctx.fillText("−"+(fov/2).toFixed(0), pad, H-pad+14);
   ctx.fillText("+"+(fov/2).toFixed(0), W-38, H-pad+14);
 }
+function drawSpec(canvas, beam){
+  const ctx=canvas.getContext("2d"), W=canvas.width, H=canvas.height, pad=38;
+  ctx.clearRect(0,0,W,H);
+  plotAxes(ctx,W,H,pad,"keV","relative fluence");
+  if(!beam) return;
+  const c=Math.floor(beam.w2[0].length/2), edge=beam.w2[0].length-1;
+  const Emax=Math.max(...beam.E)*1.05 || 140;
+  let ymax=0;
+  for(let e=0;e<beam.nE;e++) ymax=Math.max(ymax,beam.w2[e][c],beam.w2[e][edge]);
+  if(ymax<=0) ymax=1;
+  const X=E=>pad+(W-pad-10)*E/Emax;
+  const Y=v=>H-pad-(H-pad-14)*v/ymax;
+  const series=(idx,col,dash)=>{
+    ctx.strokeStyle=col; ctx.lineWidth=1.8; ctx.setLineDash(dash||[]);
+    ctx.beginPath();
+    for(let e=0;e<beam.nE;e++){
+      const x=X(beam.E[e]), y=Y(beam.w2[e][idx]);
+      e?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  series(edge,"#5cc9e0",[4,3]);
+  series(c,"#f2a93b");
+  ctx.fillStyle="#8fa3b0"; ctx.font="11px ui-monospace,monospace";
+  ctx.fillText("central ray",pad+6,16);
+  ctx.fillStyle="#5cc9e0"; ctx.fillText("detector edge",pad+6,30);
+  for(let t=0;t<=4;t++){
+    const E=Emax*t/4;
+    ctx.fillStyle="#7f97a6";
+    ctx.fillText(E.toFixed(0),X(E)-8,H-pad+16);
+  }
+}
 function drawMTF(canvas,m,nyq){
   const W=canvas.width,H=canvas.height,pad=42;
   const ctx=canvas.getContext("2d");
@@ -1262,7 +1738,13 @@ async function run(){
     const L=forwardProject(objs,nViews,nDet,sMaxCm,S.aperture?3:1,S.motion/10,halfCm);
 
     await progress("detecting quanta…",0.3);
-    const sino=measure(L,nViews,nDet,S);
+    S.sMaxCm=sMaxCm; S.detHalfCm=sMaxCm;
+    const beam=buildBeam(S,nDet);
+    const sino=measure(L,nViews,nDet,S,beam);
+    drawSpec($("cSpec"),beam);
+    $("capSpec").textContent = S.poly
+      ? S.kvp+" kVp · "+meanE(beam).toFixed(0)+" keV mean"
+      : "monochromatic 70 keV";
     drawSino($("cSino"),sino,nViews,nDet);
     $("capSino").textContent=nViews+" × "+nDet;
 
@@ -1274,7 +1756,7 @@ async function run(){
       rec = backproject(use,nViews,nDet,N,halfCm,sMaxCm,S.method!=="bp");
       if(S.method==="bp"){ // scale unfiltered BP so soft tissue lands near its true level
         const st=roiStats(rec,N,halfCm,scen.bgROI,halfCm);
-        const target=fromHU(0);
+        const target=MU_WATER;
         if(st.mean>1e-6) for(let i=0;i<rec.length;i++) rec[i]*= target/st.mean;
       }
     }
@@ -1306,8 +1788,10 @@ async function run(){
     }
 
     await progress("converting to HU…",0.88);
+    const muCal = S.waterCal ? waterMu(beam, S) : MU_WATER;
+    const toHUc = mu => 1000*(mu-muCal)/muCal;
     const recHU=new Float32Array(N*N);
-    for(let i=0;i<N*N;i++) recHU[i]=toHU(rec[i]);
+    for(let i=0;i<N*N;i++) recHU[i]=toHUc(rec[i]);
 
     let outHU=recHU;
     if(S.denoise!=="none"){
@@ -1394,6 +1878,10 @@ function describe(){
   if(S.spr>0) bits.push("SPR "+S.spr.toFixed(2));
   if(S.ring>0) bits.push("gain "+S.ring.toFixed(2)+"%");
   if(S.motion>0) bits.push("motion "+S.motion.toFixed(1)+"mm");
+  if(S.poly) bits.push(S.kvp+"kVp");
+  if(S.fsMm>0.7) bits.push("FS "+S.fsMm.toFixed(1)+"mm");
+  if(S.bowtie!=="none") bits.push(S.bowtie+" bowtie");
+  if(S.grid) bits.push("grid");
   if(S.denoise!=="none") bits.push(S.denoise+" ×"+S.dnStr.toFixed(2));
   return bits.join(" · ");
 }
@@ -1429,7 +1917,15 @@ function renderPins(){
 }
 
 /* ============================== UI wiring ============================== */
-function seg(id,key,fmt){
+function onDetTypeChange(){
+  S.senMat = S.detType==="pcd" ? "czt" : "csi";
+  const p=$("segSenMat");
+  if(p) p.querySelectorAll("button").forEach(b=>{
+    if(b.dataset.v===S.senMat) b.setAttribute("aria-pressed",true);
+    else b.removeAttribute("aria-pressed");
+  });
+}
+function seg(id,key){
   const host=$(id);
   host.querySelectorAll("button").forEach(b=>{
     b.onclick=()=>{
@@ -1447,9 +1943,47 @@ function syncDerived(){
   $("vVox").textContent=(fov/S.N).toFixed(2)+" mm";
   $("vPitch").textContent=(fov*1.05/S.nDet).toFixed(2)+" mm pitch";
   $("vViews").textContent=(180/S.nViews).toFixed(2)+"°/view";
+  $("vKvp").textContent=S.kvp+" kVp";
+  $("vFs").textContent=S.fsMm.toFixed(2)+" mm";
+  $("vAnode").textContent=S.anodeDeg.toFixed(1)+"°";
+  $("vAl").textContent=S.alMm.toFixed(1)+" mm";
+  $("vCu").textContent=S.cuMm.toFixed(2)+" mm";
+  $("vSod").textContent=S.sod+" mm";
+  $("vSdd").textContent=S.sdd+" mm";
+  {
+    const M=S.sdd/S.sod;
+    const uiso=S.fsMm*(M-1)/M;
+    const pitch=fov*1.05/S.nDet;
+    $("hintGeom").textContent="magnification "+M.toFixed(2)+"× · focal-spot blur "
+      +uiso.toFixed(3)+" mm at isocentre, versus "+pitch.toFixed(2)+" mm detector pitch";
+    if(S.poly){
+      const sp=tubeSpectrum(S.kvp,S.alMm,S.cuMm);
+      const hvl=halfValueLayer(sp), me=meanEnergy(sp);
+      $("vBeam").textContent=me.toFixed(1)+" keV mean";
+      $("hintBeam").textContent="HVL "+hvl.toFixed(2)+" mm Al · effective energy rises with "
+        +"filtration, which buys beam quality at the cost of tube output.";
+    } else {
+      $("vBeam").textContent="monochromatic";
+      $("hintBeam").textContent="70 keV single energy — no beam hardening, and the tube controls "
+        +"affect only how many quanta arrive.";
+    }
+  }
   $("vDose").textContent="10^"+S.dose.toFixed(1);
   $("vEn").textContent=S.enoise+" quanta eq.";
   $("vCS").textContent=(S.csFrac*100).toFixed(0)+" %";
+  $("vSen").textContent=S.senMm.toFixed(1)+" mm "+SEN_NAME[S.senMat];
+  {
+    const mat=S.senMat;
+    const at=E=>1-Math.exp(-interpLL(SEN_E,SEN_MU[mat],E)*S.senMm/10);
+    $("hintSen").textContent="absorbs "+(100*at(40)).toFixed(0)+" % at 40 keV, "
+      +(100*at(70)).toFixed(0)+" % at 70, "+(100*at(120)).toFixed(0)+" % at 120";
+    $("hintDose").textContent = S.doseMode==="element"
+      ? "Raw fluence per element per view — adding views or channels adds total exposure, so view-count and pitch comparisons are not dose-matched."
+      : S.doseMode==="scan"
+      ? "Whole-scan photon budget held fixed, so changing views or channels redistributes the same dose. Use this to compare sampling honestly."
+      : "Fixed tube output: filtration and kVp now change the fluence as they would at fixed mAs. Tube output is "
+        +(100*(S.poly?relOutput(S.kvp,S.alMm,S.cuMm):1)).toFixed(0)+" % of the default beam.";
+  }
   $("vSpr").textContent=S.spr.toFixed(2);
   $("vRing").textContent=S.ring.toFixed(2)+" %";
   $("vBad").textContent=S.bad;
@@ -1485,7 +2019,11 @@ function slider(id,key,post){
   sel.onchange=()=>{S.scen=sel.value; setDesc(); syncDerived();};
   setDesc();
 
-  seg("segN","N"); seg("segDet","nDet"); seg("segViews","nViews"); seg("segDetType","detType");
+  seg("segN","N"); seg("segDet","nDet"); seg("segViews","nViews"); seg("segDetType","detType",onDetTypeChange);
+  seg("segBow","bowtie"); seg("segDoseMode","doseMode"); seg("segSenMat","senMat");
+  $("heel").onchange=e=>S.heel=e.target.checked;
+  $("grid").onchange=e=>S.grid=e.target.checked;
+  $("waterCal").onchange=e=>S.waterCal=e.target.checked;
 
   $("aperture").onchange=e=>S.aperture=e.target.checked;
   $("poly").onchange=e=>S.poly=e.target.checked;
@@ -1496,7 +2034,8 @@ function slider(id,key,post){
   $("filter").onchange=e=>S.filter=e.target.value;
   $("denoise").onchange=e=>S.denoise=e.target.value;
 
-  ["dose","enoise","csFrac","spr","ring","bad","motion","cutoff","iters","tvw","dnStr"]
+  ["kvp","fsMm","anodeDeg","alMm","cuMm","sod","sdd","senMm",
+   "dose","enoise","csFrac","spr","ring","bad","motion","cutoff","iters","tvw","dnStr"]
     .forEach(k=>slider(k,k==="csFrac"?"csFrac":k));
   slider("ww","ww",redraw); slider("wl","wl",redraw);
 
