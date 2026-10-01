@@ -58,6 +58,7 @@ input[type=range]{width:100%; accent-color:var(--amber); background:transparent}
 .seg button[aria-pressed=true]{background:#25333c; color:var(--amber)}
 .chk{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; color:var(--dim); cursor:pointer}
 .chk input{accent-color:var(--amber)}
+a{color:var(--cyan)}
 .hint{font-size:11px; color:var(--faint); line-height:1.45; margin-top:6px}
 
 .actions{padding:14px 16px; display:flex; gap:8px; position:sticky; bottom:0; background:var(--panel); border-top:1px solid var(--line)}
@@ -222,11 +223,11 @@ details.notes .body p{margin:0 0 10px}
     </div>
     <div class="row">
       <label class="chk"><input type="checkbox" id="waterCal" checked> Water calibration</label>
-      <div class="hint">What a scanner does per kVp so water reads 0 HU on every protocol. It sets the level; it does not remove cupping, which varies with path length and needs the polynomial water correction on top.</div>
+      <div class="hint">Uses a detector-weighted 20 cm water slab as the HU reference. This scalar calibration does not remove beam hardening or guarantee 0 HU throughout a reconstructed water cylinder.</div>
     </div>
     <div class="row">
       <label class="chk"><input type="checkbox" id="grid"> Anti-scatter grid</label>
-      <div class="hint">Passes 70 % of the primary, 15 % of the scatter. Cleaner, but noisier at the same dose.</div>
+      <div class="hint">Passes 70% of primary and 15% of scatter. Scatter is a deterministic additive field here; its quantum noise is not simulated.</div>
     </div>
     <div class="row">
       <label>Beam quality <span class="val" id="vBeam"></span></label>
@@ -235,15 +236,15 @@ details.notes .body p{margin:0 0 10px}
   </div>
 
   <div class="group">
-    <h2>Detector &amp; dose</h2>
+    <h2>Detector &amp; exposure</h2>
     <div class="row">
       <label>Detector model</label>
       <div class="seg" id="segDetType">
-        <button data-v="eid">EID (CsI)</button><button data-v="pcd">PCD (CZT)</button>
+        <button data-v="eid">EID</button><button data-v="pcd">PCD</button>
       </div>
     </div>
     <div class="row">
-      <label>Incident quanta per element <span class="val" id="vDose"></span></label>
+      <label>Reference quanta <span class="val" id="vDose"></span></label>
       <input type="range" id="dose" min="2.6" max="6.5" step="0.05" value="5.5">
     </div>
     <div class="row" id="rowEnoise">
@@ -269,7 +270,7 @@ details.notes .body p{margin:0 0 10px}
     <div class="row">
       <label>Exposure meaning</label>
       <div class="seg" id="segDoseMode">
-        <button data-v="element">Per element</button><button data-v="scan">Fixed scan</button><button data-v="mas">Fixed mAs</button>
+        <button data-v="element">Per element</button><button data-v="scan">Fixed scan</button><button data-v="mas">Relative mAs</button>
       </div>
       <div class="hint" id="hintDose"></div>
     </div>
@@ -278,8 +279,8 @@ details.notes .body p{margin:0 0 10px}
   <div class="group">
     <h2>Physics &amp; artifacts</h2>
     <div class="row">
-      <label class="chk"><input type="checkbox" id="poly" checked> Polychromatic beam (120 kVp)</label>
-      <div class="hint">Off = monochromatic at 70 keV, so HU come out exact. On = beam hardening: cupping, dark bands, metal streaks.</div>
+      <label class="chk"><input type="checkbox" id="poly" checked> Polychromatic beam</label>
+      <div class="hint">Off = the 70 keV reference model; sampling, noise and other artifacts still affect HU. On = beam hardening: cupping, dark bands, metal streaks.</div>
     </div>
     <div class="row">
       <label>Scatter-to-primary ratio <span class="val" id="vSpr"></span></label>
@@ -444,58 +445,23 @@ details.notes .body p{margin:0 0 10px}
   <details class="notes">
     <summary>What is actually being simulated</summary>
     <div class="body">
-      <p><b>Forward model.</b> Phantoms are sums of analytic ellipses, so line integrals are exact: for each ellipse the Radon transform is closed-form, and path length is accumulated <i>per material</i>. Nothing is projected from a pixel grid, so the sinogram carries no discretization error of its own.</p>
-      <p><b>X-ray tube.</b> The spectrum is generated rather than tabulated: Kramers bremsstrahlung to the
-kVp endpoint, tungsten K lines at 59 and 67 keV once the tube can ionise the K shell, then filtered
-through the inherent 1 mm Al plus whatever Al and Cu you add. Mean energy and half-value layer are
-computed from that spectrum, so filtration visibly buys beam quality. The <i>heel effect</i> is
-anode self-absorption: emission toward the anode traverses more tungsten, so that side is both
-dimmer and harder. It is stationary in the detector frame, which is why it maps to rings — real
-scanners orient the heel gradient along <i>z</i> for exactly this reason. The <i>bowtie</i> is
-modelled as an Al-equivalent thickness rising quadratically toward the edge. Both act before the
-patient, so in monochromatic mode they cancel exactly in the air normalisation and only change the
-noise; polychromatically they leave a residual, because the spectrum now differs per channel.
-The <i>focal spot</i> blurs the transmitted intensity, not the path lengths, with a geometric
-unsharpness of f(M−1)/M referred to the isocentre — so it only limits resolution once it exceeds the
-detector pitch, which is the whole argument about ultra-high-resolution modes.
-
-<b>Spectrum.</b> Sixteen transport bins resampled from the generated 1 keV spectrum, spanning 10 keV to the kVp endpoint. Transmitted quanta per bin are <code>N₀·w(E)·exp(−Σ μₘ(E)·Lₘ)</code> with μ log-log interpolated from NIST-like tables for water, fat, lung, cortical bone, iodinated blood and implant alloy over 20–140 keV; the iodine K-edge at 33.17 keV is carried explicitly. The 40/60/80/100/120 keV columns are unchanged from the original table, so every previously validated number still holds. The log-signal is formed from the <i>summed</i> bins, which is where beam hardening comes from — no artifact is painted on.</p>
-      <p><b>Aperture.</b> Each element traces several sub-rays that are kept separate through the
-exponential and averaged as <i>intensities</i>, because that is what a detector integrates.
-Averaging path lengths first — the obvious shortcut — understates the signal wherever an element
-straddles a high-contrast edge: half an element covered by a ray of &mu;L = 6 measures a line
-integral 2.3 too high that way. That error is the exponential edge-gradient effect, and it is a
-real source of streaks near bone and metal.
-
-<b>Exposure.</b> The dose slider can mean three things, and the choice matters for any comparison.
-<i>Per element</i> is raw fluence per element per view, so adding views or channels adds total
-exposure — convenient, but it makes view-count and pitch comparisons dose-mismatched. <i>Fixed
-scan</i> holds the whole-scan photon budget constant. <i>Fixed mAs</i> additionally lets kVp and
-filtration change the fluence, as they do on a real tube, so filtration finally costs you output
-instead of being normalised away.
-
-<b>Detector.</b> EID weights each bin by E and adds Gaussian electronic noise; PCD counts quanta
-with unity weight and has no electronic noise floor. Both carry an energy-dependent absorption
-efficiency computed from the sensor's mass attenuation coefficient, density and thickness, on a
-grid that resolves the Cd, Te, I, Cs and Gd K-edges. Absorption is <i>not</i> ordered simply by
-atomic number: GOS is a scintillator and beats CZT above 100 keV, because what decides it is
-&rho;&nbsp;&times;&nbsp;&mu;/&rho; together with where the K-edge sits relative to the spectrum.
-The water calibration uses the same weighting as the detector it is calibrating, which it must, or
-the two detectors land on HU scales about 29 apart. The air reference passes through the same
-focal-spot blur and cross-talk as the measurement, so an empty object returns zero.
-What is <i>not</i> modelled: pulse-height spectra, thresholds, energy resolution, dead time,
-pile-up, K-escape, optical spread and conversion statistics in the scintillator, and the spectral
-half of charge sharing. The cross-talk slider is a spatial approximation, not a charge-sharing
-physics model. Because of those gaps and an unvalidated spectrum, the EID-versus-PCD numbers here
-show the direction and rough scale of the effect; they are not a substitute for bench measurement. The gap widens as dose falls and as the object thickens, and narrows toward parity at high dose once both are quantum limited.</p>
-      <p><b>Artifacts.</b> Scatter is added to the intensity before the log, which is why it depresses HU
-rather than raising them. Its source term follows the amount of material along each ray — the line
-integral — so the field peaks behind the thickest part of the object, and the slider sets the
-scatter-to-primary ratio on that thickest ray, which is how SPR is normally quoted. It is an
-input you choose per scenario, not something derived from object size. Ring artifacts come from a
-fixed per-channel gain error. Motion displaces flagged structures as a function of view angle. Sparse views, photon starvation and metal streaks all emerge from the physics rather than from a filter.</p>
-      <p><b>Reconstruction.</b> FBP uses an FFT ramp filter in cycles/cm with selectable apodization; the backprojection is in physical units, so the output is μ in cm⁻¹ and converts to HU against μ<sub>water</sub>(70 keV) = 0.195 cm⁻¹. SIRT uses a matched Joseph ray-driven projector pair with row/column normalization; the TV variant adds a gradient-descent step on total variation between iterations.</p>
-      <p><b>Metrics.</b> Noise σ and CNR from the marked ROIs; RMSE, PSNR and SSIM against the ground truth rasterized on the same grid, evaluated only inside the patient and with HU mapped to [0,1] for SSIM (RMSE includes partial-volume differences at sharp edges, so it never reaches zero); cupping as centre-minus-periphery HU in the uniform region; MTF from an oversampled radial edge-spread function around the marked disk; NPS from the 2-D FFT of the background ROI. Attenuation values are approximate and intended for teaching and method comparison, not for dosimetry or acceptance testing.</p>
+      <p><b>Scope.</b> A 2D parallel-beam teaching and method-comparison model. SOD/SDD affect the approximate focal-spot response and beam profile; this is not a fan-beam or cone-beam scanner simulation.</p>
+      <p><b>Forward model.</b> Analytic ellipse chords are accumulated by material. Aperture sub-rays remain separate through attenuation and their transmitted intensities are averaged. Angular sampling, three-point aperture quadrature, and the 1 keV energy grid remain finite approximations.</p>
+      <p><b>Source.</b> An unvalidated Kramers spectrum with approximate tungsten lines, Al/Cu filtration, and a simple bowtie. The 1 keV spectrum is retained during transport to avoid collapsing energy intervals across detector K-edges. HVL uses air-kerma weighting. The heel gradient is placed across this 2D detector for illustration; it is not a realistic model of a scanner's longitudinal heel distribution. Focal-spot blur is a Gaussian approximation with isocentre FWHM <code>f(M−1)/M</code>.</p>
+      <p><b>Detector data.</b> CsI and GOS use the NIST compound tables, including both sides of their K-edges. CZT assumes <code>Cd₀.₉Zn₀.₁Te</code> and mass-weighted NIST elemental coefficients. Log-log interpolation does not bridge edge discontinuities. CsI/GOS bulk densities are 4.51/7.44 g/cm³; CZT uses an assumed 5.78 g/cm³. Porosity, dopants and packaging are not represented.</p>
+      <p><b>Response.</b> <code>1−exp(−μt)</code> from total attenuation is an interaction-probability approximation; every interaction is then treated as a full-energy event. EID weights these events by energy and adds electronic noise; PCD weights them equally. Partial deposition, K-escape, scintillator light spread/conversion statistics, thresholds, energy resolution, pile-up, dead time and spectral charge sharing are absent. PCD cross-talk redistributes expected counts spatially; it does not reproduce shared-event covariance. Results do not establish a real detector ranking or quantitative bench CNR.</p>
+      <p><b>Exposure.</b> Per-element mode specifies central incident quanta per view. Fixed-scan mode holds the total incident photon budget constant across channels/views, including bowtie/heel profiles. Relative-mAs mode also scales an approximate source yield with filtration and kVp. None is an absorbed-dose calculation or a calibrated absolute mAs setting.</p>
+      <p><b>Calibration and scatter.</b> Air and object signals use the same spatial response. The HU reference uses a detector-weighted 20 cm water slab; it does not correct path-dependent beam hardening. The scatter slider sets pre-grid signal SPR on the most attenuated ray of each view. Grid transmission is 0.70 for primary and 0.15 for scatter. Scatter is a deterministic smooth field without its own quantum noise or energy spectrum.</p>
+      <p><b>Reconstruction and metrics.</b> FBP uses a physical-unit ramp filter; SIRT uses a matched discrete projector/adjoint, with optional TV steps rather than a full statistical MBIR model. Monochromatic truth uses the legacy 70 keV reference (water 0.195 cm⁻¹); polychromatic reconstruction can differ because of energy dependence as well as reconstruction error. Single-ROI standard deviation/NPS include residual structure and artifacts. The disk-edge MTF is an illustrative estimate, especially with nonlinear denoising or coarse sampling. NPS units are HU²·mm². These are not acceptance-test or dosimetry results.</p>
+      <p><b>Sources.</b> NIST SRD 126:
+        <a href="https://physics.nist.gov/PhysRefData/XrayMassCoef/ComTab/cesium.html">CsI</a>,
+        <a href="https://physics.nist.gov/PhysRefData/XrayMassCoef/ComTab/gadolinium.html">GOS</a>,
+        <a href="https://physics.nist.gov/PhysRefData/XrayMassCoef/ElemTab/z48.html">Cd</a>,
+        <a href="https://physics.nist.gov/PhysRefData/XrayMassCoef/ElemTab/z30.html">Zn</a>,
+        <a href="https://physics.nist.gov/PhysRefData/XrayMassCoef/ElemTab/z52.html">Te</a>,
+        <a href="https://physics.nist.gov/PhysRefData/XrayMassCoef/ComTab/air.html">air</a>,
+        <a href="https://physics.nist.gov/PhysRefData/XrayMassCoef/tab2.html">nominal compound densities</a>.
+        Source checked 30 September 2026. Object/filter attenuation tables and the tube spectrum remain approximate educational inputs.</p>
     </div>
   </details>
 </main>
@@ -588,37 +554,59 @@ function interpLL(grid, vals, E){          // log-log interpolation, clamped at 
 const muMat = (m,E)=> EX_MU[m] ? interpLL(EX_E, EX_MU[m], E) : 0;
 const muFil = (m,E)=> interpLL(FIL_E, FIL_MU[m], E);
 
-/* Sensor materials. These are mass attenuation coefficients in cm^2/g, computed from
-   elemental mu/rho and stoichiometry rather than written by hand, then multiplied by
-   density. The grid resolves every K-edge that falls in the diagnostic range:
-   Cd 26.7, Te 31.8, I 33.2, Cs 36.0, Gd 50.2 keV.
-     CsI  caesium iodide,        1:1,        4.51 g/cm3   (EID scintillator)
-     GOS  gadolinium oxysulfide, Gd2O2S,     7.34 g/cm3   (EID scintillator)
-     CZT  cadmium zinc telluride, Cd0.9Zn0.1Te, 5.78 g/cm3 (PCD direct converter)
-   Ordering is NOT simply "higher Z wins": GOS is a scintillator and outperforms CZT above
-   100 keV, because what matters is rho x mu/rho together with where the K-edge sits. */
-const SEN_E = [20,26.6,26.8,31.7,31.9,33.1,33.3,35.9,36.1,40,50.1,50.4,60,80,100,120,140];
-const SEN_RHO = {csi:4.51, gos:7.34, czt:5.78};
+/* Detector total mass attenuation, cm^2/g, from NIST SRD 126 (accessed 2026-09-30).
+   CsI: https://physics.nist.gov/PhysRefData/XrayMassCoef/ComTab/cesium.html
+   GOS: https://physics.nist.gov/PhysRefData/XrayMassCoef/ComTab/gadolinium.html
+   Cd/Zn/Te: https://physics.nist.gov/PhysRefData/XrayMassCoef/ElemTab/z48.html
+             https://physics.nist.gov/PhysRefData/XrayMassCoef/ElemTab/z30.html
+             https://physics.nist.gov/PhysRefData/XrayMassCoef/ElemTab/z52.html
+   Energies are keV. Duplicate energies retain the lower/upper sides of each edge.
+   CsI/GOS nominal bulk densities: NIST Table 2; CZT density is a model assumption.
+   CZT is Cd0.9Zn0.1Te; elemental coefficients are combined by MASS fraction.
+   This uses total attenuation as an interaction-probability approximation, then assumes
+   full-energy detection. It is NOT a complete absorption, pulse-height, or DQE model. */
+const SEN_RHO = {csi:4.51, gos:7.44, czt:5.78};
 const SEN_NAME = {csi:"CsI", gos:"GOS", czt:"CZT"};
-const SEN_MU = {
-  csi: [34.632,15.916,15.665,9.880,9.795,8.809,22.360,18.316,30.165,23.114,12.998,12.868,
-        8.074,3.744,2.092,1.364,0.953].map(v=>v*SEN_RHO.csi),
-  gos: [21.632,10.469,10.300,6.598,6.488,5.874,5.789,4.729,4.661,3.539,1.884,10.524,
-        6.771,3.212,1.845,1.204,0.862].map(v=>v*SEN_RHO.gos),
-  czt: [26.439,12.181,32.785,20.806,39.999,36.007,35.411,28.779,28.336,21.650,11.967,11.773,
-        7.413,3.417,1.900,1.216,0.852].map(v=>v*SEN_RHO.czt)
+const MASS_TABLES = {
+  csi: {E:[10,15,20,30,33.1694,33.1694,34.5483,35.9846,35.9846,40,50,60,80,100,150],
+        mu:[171.1,58.15,26.86,9.045,6.923,21.22,26.87,17.19,30.27,22.97,12.87,7.921,3.677,2.035,.729]},
+  gos: {E:[10,15,20,30,40,50,50.2391,50.2391,60,80,100,150],
+        mu:[228.5,79.02,36.89,12.54,5.854,3.274,3.234,15.55,9.815,4.666,2.613,.9381]},
+  cd:  {E:[10,15,20,26.7112,26.7112,30,40,50,60,80,100,150],
+        mu:[124.4,41.78,19.20,8.809,50.65,37.65,17.78,9.779,5.975,2.751,1.524,.5593]},
+  zn:  {E:[10,15,20,30,40,50,60,80,100,150],
+        mu:[233.1,81.17,37.19,12.07,5.384,2.892,1.760,.8364,.4973,.2341]},
+  te:  {E:[10,15,20,30,31.8138,31.8138,40,50,60,80,100,150],
+        mu:[150.1,50.78,23.41,7.878,6.738,37.19,20.64,11.45,7.041,3.255,1.801,.6492]}
 };
-// fraction of incident quanta absorbed in the sensor, per energy bin
-function detEff(beam, cfg){
-  const n=beam.nE, out=new Float64Array(n);
-  if(!cfg || !cfg.senMm){ out.fill(1); return out; }
-  const mat = SEN_MU[cfg.senMat] ? cfg.senMat : (cfg.detType==="pcd" ? "czt" : "csi");
-  const t = cfg.senMm/10;                            // cm
-  for(let e=0;e<n;e++) out[e]=1-Math.exp(-interpLL(SEN_E,SEN_MU[mat],beam.E[e])*t);
+function edgeInterp(table,E){
+  const x=table.E,y=table.mu,n=x.length;
+  if(E<x[0]) return y[0];
+  let i=0;
+  // Upper-bound search: at an edge, use its high-energy side; never bridge the jump.
+  while(i<n-1 && x[i+1]<=E) i++;
+  if(i===n-1 || E===x[i]) return y[i];
+  const t=Math.log(E/x[i])/Math.log(x[i+1]/x[i]);
+  return Math.exp(Math.log(y[i])+t*Math.log(y[i+1]/y[i]));
+}
+const CZT_FORMULA_MASS = .9*112.414 + .1*65.38 + 127.60;
+const CZT_MASS_FRACTIONS = {cd:.9*112.414/CZT_FORMULA_MASS,
+  zn:.1*65.38/CZT_FORMULA_MASS,te:127.60/CZT_FORMULA_MASS};
+function sensorMassMu(mat,E){
+  if(mat!=="czt") return edgeInterp(MASS_TABLES[mat],E);
+  let mu=0;
+  for(const m of ["cd","zn","te"]) mu+=CZT_MASS_FRACTIONS[m]*edgeInterp(MASS_TABLES[m],E);
+  return mu;
+}
+function sensorMu(mat,E){return SEN_RHO[mat]*sensorMassMu(mat,E);}
+function detEff(beam,cfg){
+  const out=new Float64Array(beam.nE);
+  if(!cfg || cfg.senMm===0){out.fill(1);return out;}
+  const mat=SEN_RHO[cfg.senMat] ? cfg.senMat : (cfg.detType==="pcd"?"czt":"csi");
+  for(let e=0;e<out.length;e++) out[e]=-Math.expm1(-sensorMu(mat,beam.E[e])*cfg.senMm/10);
   return out;
 }
 
-const N_EBIN = 16;                          // transport bins; 8+ is converged, 16 is cheap
 const INHERENT_AL = 1.0;                    // mm Al equivalent, tube window + oil + port
 
 // Kramers bremsstrahlung + tungsten K lines, filtered. Returns a 1 keV fluence grid.
@@ -678,21 +666,10 @@ function meanEnergy(sp){
   for(let i=0;i<sp.E.length;i++){ a+=sp.w[i]*sp.E[i]; b+=sp.w[i]; }
   return b>0 ? a/b : 0;
 }
-// bin the 1 keV spectrum down to N_EBIN transport bins
-function binSpectrum(sp, nBin){
-  const lo=10, hi=sp.E[sp.E.length-1];
-  const Eb=new Float64Array(nBin), wb=new Float64Array(nBin);
-  const dw=(hi-lo)/nBin;
-  for(let i=0;i<sp.E.length;i++){
-    let k=Math.floor((sp.E[i]-lo)/dw); if(k<0)k=0; if(k>=nBin)k=nBin-1;
-    wb[k]+=sp.w[i]; Eb[k]+=sp.w[i]*sp.E[i];
-  }
-  const E=[], w=[];
-  for(let k=0;k<nBin;k++){
-    if(wb[k]>1e-12){ E.push(Eb[k]/wb[k]); w.push(wb[k]); }
-  }
-  const tot=w.reduce((a,b)=>a+b,0);
-  return {E, w:w.map(v=>v/tot)};
+// Preserve the original 1 keV quadrature rather than merging bins across K-edges.
+function transportSpectrum(sp){
+  const total=sp.w.reduce((a,b)=>a+b,0);
+  return {E:sp.E.slice(),w:sp.w.map(v=>v/total)};
 }
 
 /* Per-channel beam: heel effect and bowtie both vary across the detector and both
@@ -700,7 +677,7 @@ function binSpectrum(sp, nBin){
    so the central channel carries unit fluence. */
 function buildBeam(cfg, nDet){
   const mono = !cfg.poly;
-  const sp = mono ? {E:[70], w:[1]} : binSpectrum(tubeSpectrum(cfg.kvp, cfg.alMm, cfg.cuMm), N_EBIN);
+  const sp = mono ? {E:[70], w:[1]} : transportSpectrum(tubeSpectrum(cfg.kvp, cfg.alMm, cfg.cuMm));
   const nE = sp.E.length;
   // angular half-extent of the detector as seen from the source
   const detHalfMm = cfg.detHalfCm*10 * (cfg.sdd/cfg.sod);   // detector half width at the detector
@@ -962,6 +939,20 @@ function forwardProject(objs, nViews, nDet, sMaxCm, sub, motionCm, scale){
   return L;
 }
 
+// Photon budget is defined before the object/grid/sensor, not as absorbed dose.
+function incidentQuanta(cfg,beam,nViews,nDet){
+  let n=Math.pow(10,cfg.dose);
+  if(cfg.doseMode==="scan" || cfg.doseMode==="mas") n*=360*256/(nViews*nDet);
+  if(cfg.doseMode==="scan"){
+    let sum=0;for(const row of beam.w2) for(const w of row) sum+=w;
+    n/=sum/nDet;
+  }
+  // Relative source-output model, referenced to 120 kVp, 7 mm Al, 0.2 mm Cu.
+  // Absolute mAs, inverse-square fluence and patient dose are not calibrated here.
+  if(cfg.doseMode==="mas") n*=beam.outputRel;
+  return n;
+}
+
 /* ============================== detector / noise model ============================== */
 function measure(L, nViews, nDet, cfg, beam){
   const nM=MATS.length, nvd=nViews*nDet;
@@ -973,16 +964,9 @@ function measure(L, nViews, nDet, cfg, beam){
   const Emean = meanE(beam);
   const eff = detEff(beam, cfg);
   const nSub = Math.max(1, Math.round(L.length/(nM*nvd)));
+  const muByEnergy=EE.map(E=>Float64Array.from(MATS,m=>beam.mono?MU_EFF[m]:muMat(m,E)));
 
-  // What the dose slider means. "element" is raw incident fluence per element per view, so
-  // adding views or channels adds total exposure. "scan" holds the whole-scan photon budget
-  // fixed, which is the only honest way to compare view counts or detector pitch. "mas" also
-  // lets filtration and kVp change the fluence, as they do on a real tube at fixed mAs.
-  let N0eff = N0;
-  if(cfg.doseMode==="scan" || cfg.doseMode==="mas"){
-    N0eff *= (360/nViews)*(256/nDet);
-    if(cfg.doseMode==="mas") N0eff *= beam.outputRel;
-  }
+  const N0eff = incidentQuanta(cfg,beam,nViews,nDet);
 
   // focal-spot blur, expressed in detector samples at the isocentre
   const M = cfg.sdd/cfg.sod;
@@ -1032,8 +1016,7 @@ function measure(L, nViews, nDet, cfg, beam){
       const Eph = EE[e];
       const wt = cfg.detType==="eid" ? Eph : 1;
       // mu for this bin, once per material rather than once per ray
-      const muE = new Float64Array(nM);
-      for(let m=0;m<nM;m++) muE[m] = beam.mono ? MU_EFF[MATS[m]] : muMat(MATS[m], Eph);
+      const muE = muByEnergy[e];
       // expected transmitted quanta: exponentiate each sub-ray, THEN average intensities
       const tmp = new Float64Array(nDet);
       for(let i=0;i<nDet;i++){
@@ -1702,15 +1685,16 @@ async function progress(txt,frac){
 async function run(){
   if(running) return;
   running=true; $("run").disabled=true;
+  const cfg={...S};
   const t0=performance.now();
   try{
-    rng = mulberry32(S.seed);
-    const scen=SCENARIOS[S.scen];
+    rng = mulberry32(cfg.seed);
+    const scen=SCENARIOS[cfg.scen];
     const objs=scen.build();
     const fov=scen.fov;                       // mm
     const halfCm=fov/20;                      // half FOV in cm  (= unit radius)
     const sMaxCm=halfCm*1.05;                 // detector spans slightly more than the FOV
-    const N=S.N, nDet=S.nDet, nViews=S.nViews;
+    const N=cfg.N, nDet=cfg.nDet, nViews=cfg.nViews;
 
     await progress("rasterizing ground truth…",0.05);
     const gtHU=new Float32Array(N*N);
@@ -1731,36 +1715,36 @@ async function run(){
         }
       }
     }
-    drawHU($("cGT"),gtHU,N,S.wl,S.ww);
-    if(S.showROI) overlayROIs($("cGT"),N,halfCm,halfCm,scen);
+    drawHU($("cGT"),gtHU,N,cfg.wl,cfg.ww);
+    if(cfg.showROI) overlayROIs($("cGT"),N,halfCm,halfCm,scen);
 
     await progress("forward projecting…",0.15);
-    const L=forwardProject(objs,nViews,nDet,sMaxCm,S.aperture?3:1,S.motion/10,halfCm);
+    const L=forwardProject(objs,nViews,nDet,sMaxCm,cfg.aperture?3:1,cfg.motion/10,halfCm);
 
     await progress("detecting quanta…",0.3);
-    S.sMaxCm=sMaxCm; S.detHalfCm=sMaxCm;
-    const beam=buildBeam(S,nDet);
-    const sino=measure(L,nViews,nDet,S,beam);
+    cfg.sMaxCm=sMaxCm; cfg.detHalfCm=sMaxCm;
+    const beam=buildBeam(cfg,nDet);
+    const sino=measure(L,nViews,nDet,cfg,beam);
     drawSpec($("cSpec"),beam);
-    $("capSpec").textContent = S.poly
-      ? S.kvp+" kVp · "+meanE(beam).toFixed(0)+" keV mean"
+    $("capSpec").textContent = cfg.poly
+      ? cfg.kvp+" kVp · "+meanE(beam).toFixed(0)+" keV mean"
       : "monochromatic 70 keV";
     drawSino($("cSino"),sino,nViews,nDet);
     $("capSino").textContent=nViews+" × "+nDet;
 
     let rec;
     const ds=2*sMaxCm/nDet;
-    if(S.method==="fbp"||S.method==="bp"||((S.method==="sirt"||S.method==="sirttv")&&S.warm)){
+    if(cfg.method==="fbp"||cfg.method==="bp"||((cfg.method==="sirt"||cfg.method==="sirttv")&&cfg.warm)){
       await progress("filtering & backprojecting…",0.45);
-      const use = S.method==="bp" ? sino : rampFilter(sino,nViews,nDet,ds,S.filter,S.cutoff);
-      rec = backproject(use,nViews,nDet,N,halfCm,sMaxCm,S.method!=="bp");
-      if(S.method==="bp"){ // scale unfiltered BP so soft tissue lands near its true level
+      const use = cfg.method==="bp" ? sino : rampFilter(sino,nViews,nDet,ds,cfg.filter,cfg.cutoff);
+      rec = backproject(use,nViews,nDet,N,halfCm,sMaxCm,cfg.method!=="bp");
+      if(cfg.method==="bp"){ // scale unfiltered BP so soft tissue lands near its true level
         const st=roiStats(rec,N,halfCm,scen.bgROI,halfCm);
-        const target=MU_WATER;
+        const target=cfg.waterCal ? waterMu(beam,cfg) : MU_WATER;
         if(st.mean>1e-6) for(let i=0;i<rec.length;i++) rec[i]*= target/st.mean;
       }
     }
-    if(S.method==="sirt"||S.method==="sirttv"){
+    if(cfg.method==="sirt"||cfg.method==="sirttv"){
       if(!rec) rec=new Float32Array(N*N);
       const ones=new Float32Array(N*N).fill(1);
       const A1=forwardGrid(ones,nViews,nDet,N,halfCm,sMaxCm);
@@ -1770,15 +1754,15 @@ async function run(){
       for(let i=0;i<AT1.length;i++) if(AT1[i]<1e-6) AT1[i]=1e-6;
       const lam=1.0;
       // TV step size in water-normalized units: 1.0 = 1000 HU
-      const tvDt=S.tvw*0.004, tvEps=0.012;
-      for(let it=0; it<S.iters; it++){
-        await progress("SIRT iteration "+(it+1)+" / "+S.iters,0.45+0.4*it/S.iters);
+      const tvDt=cfg.tvw*0.004, tvEps=0.012;
+      for(let it=0; it<cfg.iters; it++){
+        await progress("SIRT iteration "+(it+1)+" / "+cfg.iters,0.45+0.4*it/cfg.iters);
         const Ax=forwardGrid(rec,nViews,nDet,N,halfCm,sMaxCm);
         const resid=new Float32Array(nViews*nDet);
         for(let i=0;i<resid.length;i++) resid[i]=(sino[i]-Ax[i])/A1[i];
         const corr=backprojectAdj(resid,nViews,nDet,N,halfCm,sMaxCm);
         for(let i=0;i<rec.length;i++) rec[i]+= lam*corr[i]/AT1[i];
-        if(S.method==="sirttv" && S.tvw>0){
+        if(cfg.method==="sirttv" && cfg.tvw>0){
           const y=new Float32Array(rec.length);
           for(let i=0;i<rec.length;i++) y[i]=rec[i]/MU_WATER;
           let z=tvStep(y,N,tvDt,tvEps); z=tvStep(z,N,tvDt,tvEps);
@@ -1788,20 +1772,20 @@ async function run(){
     }
 
     await progress("converting to HU…",0.88);
-    const muCal = S.waterCal ? waterMu(beam, S) : MU_WATER;
+    const muCal = cfg.waterCal ? waterMu(beam, cfg) : MU_WATER;
     const toHUc = mu => 1000*(mu-muCal)/muCal;
     const recHU=new Float32Array(N*N);
     for(let i=0;i<N*N;i++) recHU[i]=toHUc(rec[i]);
 
     let outHU=recHU;
-    if(S.denoise!=="none"){
-      await progress("denoising ("+S.denoise+")…",0.92);
-      const k=S.dnStr;
-      if(S.denoise==="gauss")     outHU=gaussianBlur(recHU,N,0.8*k);
-      else if(S.denoise==="median") { outHU=medianFilter(recHU,N); if(k>1.6) outHU=medianFilter(outHU,N); }
-      else if(S.denoise==="bilateral") outHU=bilateral(recHU,N,1.4*k,45*k);
-      else if(S.denoise==="tv")   outHU=tvDenoise(recHU,N,3.0*k,22);
-      else if(S.denoise==="nlm")  outHU=nlm(recHU,N,28*k, N>256?3:5, 1);
+    if(cfg.denoise!=="none"){
+      await progress("denoising ("+cfg.denoise+")…",0.92);
+      const k=cfg.dnStr;
+      if(cfg.denoise==="gauss")     outHU=gaussianBlur(recHU,N,0.8*k);
+      else if(cfg.denoise==="median") { outHU=medianFilter(recHU,N); if(k>1.6) outHU=medianFilter(outHU,N); }
+      else if(cfg.denoise==="bilateral") outHU=bilateral(recHU,N,1.4*k,45*k);
+      else if(cfg.denoise==="tv")   outHU=tvDenoise(recHU,N,3.0*k,22);
+      else if(cfg.denoise==="nlm")  outHU=nlm(recHU,N,28*k, N>256?3:5, 1);
     }
 
     await progress("measuring…",0.96);
@@ -1825,13 +1809,13 @@ async function run(){
     const nyq=1/(2*voxel);          // lp/mm from voxel size
     const gtBg=roiStats(gtHU,N,halfCm,scen.bgROI,sc);
 
-    drawHU($("cRec"),outHU,N,S.wl,S.ww);
-    if(S.showROI) overlayROIs($("cRec"),N,halfCm,sc,scen);
+    drawHU($("cRec"),outHU,N,cfg.wl,cfg.ww);
+    if(cfg.showROI) overlayROIs($("cRec"),N,halfCm,sc,scen);
     drawErr($("cErr"),outHU,gtHU,N,250);
     drawProfile($("cProf"),gtHU,outHU,N,fov);
     drawMTF($("cMTF"),mtf,nyq);
     drawNPS($("cNPS"),nps);
-    $("capRec").textContent = S.method.toUpperCase()+" · "+voxel.toFixed(2)+" mm";
+    $("capRec").textContent = cfg.method.toUpperCase()+" · "+voxel.toFixed(2)+" mm";
     $("capGT").textContent = "70 keV · "+fov+" mm FOV";
 
     const dt=(performance.now()-t0)/1000;
@@ -1853,7 +1837,7 @@ async function run(){
       `<div class="metric ${cls}"><div class="k">${k}</div><div class="v">${v}${u?`<small>${u}</small>`:""}</div></div>`
     ).join("");
 
-    last={img:outHU,N,metrics:{noise:bg.sd,cnr,rmse,ssim:ss,f50:mtf&&mtf.f50?mtf.f50:null,voxel},label:describe()};
+    last={img:outHU,gtHU,N,halfCm,scen,config:{...cfg},metrics:{noise:bg.sd,cnr,rmse,ssim:ss,f50:mtf&&mtf.f50?mtf.f50:null,voxel},label:describe(cfg)};
     await progress("done · "+dt.toFixed(1)+" s",1);
     setTimeout(()=>{$("pbar").style.width="0%";},900);
   }catch(err){
@@ -1864,25 +1848,27 @@ async function run(){
   }
 }
 
-function describe(){
-  const scen=SCENARIOS[S.scen];
+function describe(cfg=S){
+  const scen=SCENARIOS[cfg.scen];
   const bits=[
-    S.method==="fbp" ? "FBP "+S.filter+(S.cutoff<1?" ×"+S.cutoff.toFixed(2):"")
-      : S.method==="bp" ? "unfiltered BP"
-      : (S.method==="sirttv"?"SIRT+TV ":"SIRT ")+S.iters+"it",
-    S.N+"² · "+(scen.fov/S.N).toFixed(2)+"mm",
-    S.nViews+" views · "+S.nDet+"det",
-    S.detType.toUpperCase()+" · 10^"+S.dose.toFixed(1)+" quanta",
-    S.poly?"poly":"mono"
+    cfg.method==="fbp" ? "FBP "+cfg.filter+(cfg.cutoff<1?" ×"+cfg.cutoff.toFixed(2):"")
+      : cfg.method==="bp" ? "unfiltered BP"
+      : (cfg.method==="sirttv"?"SIRT+TV ":"SIRT ")+cfg.iters+"it",
+    cfg.N+"² · "+(scen.fov/cfg.N).toFixed(2)+"mm",
+    cfg.nViews+" views · "+cfg.nDet+"det",
+    cfg.detType.toUpperCase()+" / "+SEN_NAME[cfg.senMat]+" "+cfg.senMm.toFixed(1)+"mm",
+    "10^"+cfg.dose.toFixed(1)+" quanta · "+cfg.doseMode,
+    "Al "+cfg.alMm.toFixed(1)+"mm · Cu "+cfg.cuMm.toFixed(2)+"mm · seed "+cfg.seed,
+    cfg.poly?"poly":"mono"
   ];
-  if(S.spr>0) bits.push("SPR "+S.spr.toFixed(2));
-  if(S.ring>0) bits.push("gain "+S.ring.toFixed(2)+"%");
-  if(S.motion>0) bits.push("motion "+S.motion.toFixed(1)+"mm");
-  if(S.poly) bits.push(S.kvp+"kVp");
-  if(S.fsMm>0.7) bits.push("FS "+S.fsMm.toFixed(1)+"mm");
-  if(S.bowtie!=="none") bits.push(S.bowtie+" bowtie");
-  if(S.grid) bits.push("grid");
-  if(S.denoise!=="none") bits.push(S.denoise+" ×"+S.dnStr.toFixed(2));
+  if(cfg.spr>0) bits.push("SPR "+cfg.spr.toFixed(2));
+  if(cfg.ring>0) bits.push("gain "+cfg.ring.toFixed(2)+"%");
+  if(cfg.motion>0) bits.push("motion "+cfg.motion.toFixed(1)+"mm");
+  if(cfg.poly) bits.push(cfg.kvp+"kVp");
+  if(cfg.fsMm>0.7) bits.push("FS "+cfg.fsMm.toFixed(1)+"mm");
+  if(cfg.bowtie!=="none") bits.push(cfg.bowtie+" bowtie");
+  if(cfg.grid) bits.push("grid");
+  if(cfg.denoise!=="none") bits.push(cfg.denoise+" ×"+cfg.dnStr.toFixed(2));
   return bits.join(" · ");
 }
 
@@ -1917,15 +1903,15 @@ function renderPins(){
 }
 
 /* ============================== UI wiring ============================== */
+let lastEidMaterial="csi";
 function onDetTypeChange(){
-  S.senMat = S.detType==="pcd" ? "czt" : "csi";
-  const p=$("segSenMat");
-  if(p) p.querySelectorAll("button").forEach(b=>{
-    if(b.dataset.v===S.senMat) b.setAttribute("aria-pressed",true);
-    else b.removeAttribute("aria-pressed");
-  });
+  S.senMat = S.detType==="pcd" ? "czt" : lastEidMaterial;
 }
-function seg(id,key){
+function onSensorChange(){
+  S.detType=S.senMat==="czt"?"pcd":"eid";
+  if(S.detType==="eid") lastEidMaterial=S.senMat;
+}
+function seg(id,key,fmt){
   const host=$(id);
   host.querySelectorAll("button").forEach(b=>{
     b.onclick=()=>{
@@ -1939,9 +1925,12 @@ function seg(id,key){
   });
 }
 function syncDerived(){
+  for(const [id,key] of [["segDetType","detType"],["segSenMat","senMat"]]){
+    $(id).querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===S[key])));
+  }
   const fov=SCENARIOS[S.scen].fov;
   $("vVox").textContent=(fov/S.N).toFixed(2)+" mm";
-  $("vPitch").textContent=(fov*1.05/S.nDet).toFixed(2)+" mm pitch";
+  $("vPitch").textContent=(fov*1.05/S.nDet).toFixed(2)+" mm at isocentre";
   $("vViews").textContent=(180/S.nViews).toFixed(2)+"°/view";
   $("vKvp").textContent=S.kvp+" kVp";
   $("vFs").textContent=S.fsMm.toFixed(2)+" mm";
@@ -1955,7 +1944,7 @@ function syncDerived(){
     const uiso=S.fsMm*(M-1)/M;
     const pitch=fov*1.05/S.nDet;
     $("hintGeom").textContent="magnification "+M.toFixed(2)+"× · focal-spot blur "
-      +uiso.toFixed(3)+" mm at isocentre, versus "+pitch.toFixed(2)+" mm detector pitch";
+      +uiso.toFixed(3)+" mm at isocentre, versus "+pitch.toFixed(2)+" mm pitch referred to isocentre";
     if(S.poly){
       const sp=tubeSpectrum(S.kvp,S.alMm,S.cuMm);
       const hvl=halfValueLayer(sp), me=meanEnergy(sp);
@@ -1964,8 +1953,7 @@ function syncDerived(){
         +"filtration, which buys beam quality at the cost of tube output.";
     } else {
       $("vBeam").textContent="monochromatic";
-      $("hintBeam").textContent="70 keV single energy — no beam hardening, and the tube controls "
-        +"affect only how many quanta arrive.";
+      $("hintBeam").textContent="70 keV reference. kVp, added filtration and heel effect are inactive; geometry, bowtie and detector settings remain active.";
     }
   }
   $("vDose").textContent="10^"+S.dose.toFixed(1);
@@ -1974,14 +1962,14 @@ function syncDerived(){
   $("vSen").textContent=S.senMm.toFixed(1)+" mm "+SEN_NAME[S.senMat];
   {
     const mat=S.senMat;
-    const at=E=>1-Math.exp(-interpLL(SEN_E,SEN_MU[mat],E)*S.senMm/10);
-    $("hintSen").textContent="absorbs "+(100*at(40)).toFixed(0)+" % at 40 keV, "
-      +(100*at(70)).toFixed(0)+" % at 70, "+(100*at(120)).toFixed(0)+" % at 120";
+    const at=E=>1-Math.exp(-sensorMu(mat,E)*S.senMm/10);
+    $("hintSen").textContent="Interaction probability: "+(100*at(40)).toFixed(0)+" % at 40 keV, "
+      +(100*at(70)).toFixed(0)+" % at 70, "+(100*at(120)).toFixed(0)+" % at 120 keV; density "+SEN_RHO[mat]+" g/cm³ (bulk model).";
     $("hintDose").textContent = S.doseMode==="element"
       ? "Raw fluence per element per view — adding views or channels adds total exposure, so view-count and pitch comparisons are not dose-matched."
       : S.doseMode==="scan"
-      ? "Whole-scan photon budget held fixed, so changing views or channels redistributes the same dose. Use this to compare sampling honestly."
-      : "Fixed tube output: filtration and kVp now change the fluence as they would at fixed mAs. Tube output is "
+      ? "Fixed incident scan photon budget, including the beam profile. Changing energy or material does not imply equal absorbed dose."
+      : "Approximate relative source output; not calibrated mAs or dose. Output is "
         +(100*(S.poly?relOutput(S.kvp,S.alMm,S.cuMm):1)).toFixed(0)+" % of the default beam.";
   }
   $("vSpr").textContent=S.spr.toFixed(2);
@@ -2020,15 +2008,15 @@ function slider(id,key,post){
   setDesc();
 
   seg("segN","N"); seg("segDet","nDet"); seg("segViews","nViews"); seg("segDetType","detType",onDetTypeChange);
-  seg("segBow","bowtie"); seg("segDoseMode","doseMode"); seg("segSenMat","senMat");
+  seg("segBow","bowtie"); seg("segDoseMode","doseMode"); seg("segSenMat","senMat",onSensorChange);
   $("heel").onchange=e=>S.heel=e.target.checked;
   $("grid").onchange=e=>S.grid=e.target.checked;
   $("waterCal").onchange=e=>S.waterCal=e.target.checked;
 
   $("aperture").onchange=e=>S.aperture=e.target.checked;
-  $("poly").onchange=e=>S.poly=e.target.checked;
+  $("poly").onchange=e=>{S.poly=e.target.checked;syncDerived();};
   $("warm").onchange=e=>{S.warm=e.target.checked;syncDerived();};
-  $("showROI").onchange=e=>{S.showROI=e.target.checked;syncDerived();};
+  $("showROI").onchange=e=>{S.showROI=e.target.checked;syncDerived();redraw();};
   $("seed").onchange=e=>S.seed=Math.max(1,+e.target.value||1);
   $("method").onchange=e=>{S.method=e.target.value;syncDerived();};
   $("filter").onchange=e=>S.filter=e.target.value;
@@ -2058,7 +2046,11 @@ function slider(id,key,post){
 function redraw(){
   if(!last) return;
   drawHU($("cRec"),last.img,last.N,S.wl,S.ww);
-  if(S.showROI) overlayROIs($("cRec"),last.N,SCENARIOS[S.scen].fov/20,SCENARIOS[S.scen].fov/20,SCENARIOS[S.scen]);
+  drawHU($("cGT"),last.gtHU,last.N,S.wl,S.ww);
+  if(S.showROI){
+    overlayROIs($("cRec"),last.N,last.halfCm,last.halfCm,last.scen);
+    overlayROIs($("cGT"),last.N,last.halfCm,last.halfCm,last.scen);
+  }
   renderPins();
 }
 </script>
